@@ -20,6 +20,10 @@
 - [x] Created project documentation structure
 - [x] Defined user story and acceptance criteria
 - [x] Identified technical requirements and dependencies
+- [x] Created GitHub repository (https://github.com/VargaJoe/subtitle-assistant)
+- [x] Set up Git repository with main and develop branches
+- [x] Created comprehensive README and .gitignore
+- [x] Initial project commit and push to GitHub
 
 #### Current Tasks
 - [ ] Set up Python project structure
