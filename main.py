@@ -24,6 +24,7 @@ Examples:
   python main.py input.srt -o output.srt
   python main.py input.srt --source en --target hu
   python main.py *.srt --batch
+  python main.py input.srt --config custom_config.yaml
         """
     )
     
@@ -38,21 +39,35 @@ Examples:
     )
     
     parser.add_argument(
+        "--config", "-c",
+        help="Configuration YAML file (default: config.yaml)"
+    )
+    
+    parser.add_argument(
         "--source",
-        default="en",
-        help="Source language code (default: en)"
+        help="Source language code (overrides config)"
     )
     
     parser.add_argument(
         "--target", 
-        default="hu",
-        help="Target language code (default: hu)"
+        help="Target language code (overrides config)"
     )
     
     parser.add_argument(
         "--model",
-        default="llama3.2",
-        help="Ollama model to use (default: llama3.2)"
+        help="Ollama model to use (overrides config)"
+    )
+    
+    parser.add_argument(
+        "--formality",
+        choices=["formal", "informal", "auto"],
+        help="Translation formality level (overrides config)"
+    )
+    
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        help="Ollama request timeout in seconds (overrides config)"
     )
     
     parser.add_argument(
@@ -67,18 +82,55 @@ Examples:
         help="Enable verbose output"
     )
     
-    args = parser.parse_args()
-    
-    # Create config from arguments
-    config = Config(
-        source_lang=args.source,
-        target_lang=args.target,
-        model=args.model,
-        verbose=args.verbose
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate setup and exit"
     )
     
+    args = parser.parse_args()
+    
+    # Load configuration
+    config_path = Path(args.config or "config.yaml")
+    
+    try:
+        if config_path.exists():
+            config = Config.from_yaml(config_path)
+            print(f"✅ Loaded configuration from {config_path}")
+        else:
+            config = Config()
+            print("⚠️  Using default configuration (config.yaml not found)")
+    except Exception as e:
+        print(f"❌ Failed to load configuration: {e}")
+        return 1
+    
+    # Override config with CLI arguments
+    if args.source:
+        config.source_lang = args.source
+    if args.target:
+        config.target_lang = args.target
+    if args.model:
+        config.model = args.model
+    if args.formality:
+        config.tone.formality = args.formality
+    if args.verbose:
+        config.verbose = True
+    
     # Initialize translator
-    translator = SubtitleTranslator(config)
+    try:
+        translator = SubtitleTranslator(config)
+    except Exception as e:
+        print(f"❌ Failed to initialize translator: {e}")
+        return 1
+    
+    # Validate setup if requested
+    if args.validate:
+        if translator.validate_setup():
+            print("🎉 Translator setup is valid!")
+            return 0
+        else:
+            print("❌ Translator setup has issues.")
+            return 1
     
     try:
         # Handle single file or batch processing
@@ -93,11 +145,11 @@ Examples:
             
             print(f"Processing {len(files)} files...")
             for file in files:
-                output_path = args.output or file.with_suffix(f".{args.target}.srt")
+                output_path = args.output or config.get_output_filename(file)
                 translator.translate_file(file, output_path)
         else:
             # Single file processing
-            output_path = args.output or input_path.with_suffix(f".{args.target}.srt")
+            output_path = args.output or config.get_output_filename(input_path)
             translator.translate_file(input_path, output_path)
             
     except Exception as e:

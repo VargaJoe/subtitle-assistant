@@ -106,29 +106,38 @@ class SubtitleTranslator:
             
             # Get context for better translation
             context = self._get_translation_context(entries, i) if self.config.context_window > 0 else None
-            
-            # Translate the text
+              # Translate the text
             try:
+                # First try with retry on the primary model
                 translated_text = self.ollama_client.translate_with_retry(
                     entry.text, 
                     context
                 )
                 
-                # Create translated entry
-                translated_entry = SubtitleEntry(
-                    index=entry.index,
-                    start_time=entry.start_time,
-                    end_time=entry.end_time,
-                    text=translated_text,
-                    original_text=entry.text
-                )
-                
-                translated_entries.append(translated_entry)
-                
             except Exception as e:
-                self.logger.error(f"Failed to translate entry {entry.index}: {e}")
-                # Keep original entry as fallback
-                translated_entries.append(entry)
+                self.logger.warning(f"Primary translation failed for entry {entry.index}, trying fallback models: {e}")
+                try:
+                    # Try fallback models if primary fails
+                    translated_text = self.ollama_client.translate_with_fallback(
+                        entry.text,
+                        context
+                    )
+                except Exception as fallback_error:
+                    self.logger.error(f"All translation attempts failed for entry {entry.index}: {fallback_error}")
+                    # Keep original entry as fallback
+                    translated_entries.append(entry)
+                    continue
+            
+            # Create translated entry
+            translated_entry = SubtitleEntry(
+                index=entry.index,
+                start_time=entry.start_time,
+                end_time=entry.end_time,
+                text=translated_text,
+                original_text=entry.text
+            )
+            
+            translated_entries.append(translated_entry)
         
         if self.config.verbose:
             print()  # New line after progress indicator

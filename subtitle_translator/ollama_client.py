@@ -57,8 +57,7 @@ class OllamaClient:
         """
         if not self.is_available():
             raise ConnectionError("Ollama service is not available")
-        
-        # Build translation prompt
+          # Build translation prompt
         prompt = self._build_translation_prompt(text, context)
         
         # Make API request
@@ -77,7 +76,7 @@ class OllamaClient:
             response = requests.post(
                 f"{self.base_url}/api/generate",
                 json=payload,
-                timeout=30
+                timeout=self.config.ollama_timeout
             )
             response.raise_for_status()
             
@@ -98,30 +97,40 @@ class OllamaClient:
         except RequestException as e:
             self.logger.error(f"Translation request failed: {e}")
             raise ValueError(f"Translation failed: {e}")
-    
     def _build_translation_prompt(self, text: str, context: Optional[str] = None) -> str:
-        """Build translation prompt with context."""
+        """Build translation prompt with context and style instructions."""
         source_lang = self.config.get_language_name(self.config.source_lang)
         target_lang = self.config.get_language_name(self.config.target_lang)
         
         prompt = f"""You are a professional subtitle translator specializing in {source_lang} to {target_lang} translation for hearing-impaired users.
 
-Your task is to translate subtitle text while:
-1. Maintaining the original meaning and tone
-2. Keeping translations natural and fluent in {target_lang}
-3. Preserving any formatting (like *italics*)
-4. Keeping translations concise to fit subtitle timing
-5. Considering the context of surrounding dialogue
+TRANSLATION GUIDELINES:
+1. Maintain the original meaning and emotional tone
+2. Keep translations natural and fluent in {target_lang}
+3. Preserve any formatting (like *italics*)
+4. Keep translations concise to fit subtitle timing constraints
+5. {self.config.get_formality_instruction()}
+6. Use natural, conversational {target_lang} - avoid overly formal or awkward phrasing
 
+HUNGARIAN-SPECIFIC RULES:
+- For casual conversations, use informal "te" forms (e.g., "Hogy vagy?" not "Hogy van?")
+- For formal situations, use polite "maga/Ön" forms
+- Keep English proper names unchanged
+- Handle contractions naturally (e.g., "I'm" → "Én" or context-appropriate form)
+- Aim for natural Hungarian expressions rather than literal translations
+
+SUBTITLE CONTEXT:
+These are dialogue subtitles, so prioritize natural speech patterns over formal written language.
 """
         
         if context:
-            prompt += f"Context from surrounding subtitles:\n{context}\n\n"
+            prompt += f"\nSURROUNDING DIALOGUE CONTEXT:\n{context}\n"
         
-        prompt += f"""Translate this {source_lang} subtitle to {target_lang}:
+        prompt += f"""
+TRANSLATE THIS {source_lang.upper()} SUBTITLE TO {target_lang.upper()}:
 "{text}"
 
-Translation:"""
+Important: Respond with ONLY the translated text, no explanations or quotes."""
         
         return prompt
     
@@ -169,3 +178,46 @@ Translation:"""
                 break
         
         raise ValueError(f"Translation failed after {self.config.max_retries} attempts: {last_error}")
+    
+    def translate_with_fallback(self, text: str, context: Optional[str] = None) -> str:
+        """
+        Translate text with fallback to alternative models if the primary fails.
+        
+        Args:
+            text: Text to translate
+            context: Optional context
+            
+        Returns:
+            Translated text
+            
+        Raises:
+            ValueError: If all models fail
+        """
+        models_to_try = [self.config.model] + self.config.fallback_models
+        last_error = None
+        
+        for model in models_to_try:
+            if model not in self.get_available_models():
+                self.logger.warning(f"Model '{model}' not available, skipping")
+                continue
+                
+            # Temporarily change model
+            original_model = self.config.model
+            self.config.model = model
+            
+            try:
+                self.logger.info(f"Trying translation with model: {model}")
+                result = self.translate_with_retry(text, context)
+                
+                # Restore original model
+                self.config.model = original_model
+                return result
+                
+            except Exception as e:
+                last_error = e
+                self.logger.warning(f"Model '{model}' failed: {e}")
+                # Restore original model before trying next
+                self.config.model = original_model
+                continue
+        
+        raise ValueError(f"All models failed. Last error: {last_error}")
