@@ -61,10 +61,6 @@ This project is designed to help the hearing-impaired community. Contributions, 
 
 [License to be determined]
 
-## 🎬 Sample Data
-
-The project includes sample Magnum P.I. Season 2 subtitle files for testing and development purposes.
-
 ---
 
 **Built with ❤️ for accessibility and inclusion**
