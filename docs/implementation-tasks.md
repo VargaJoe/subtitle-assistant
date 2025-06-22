@@ -209,6 +209,25 @@
 
 ## Future Stories
 
+### 🚨 Story 1.5 - Resume and Progress Management (HIGH PRIORITY)
+**Status**: CRITICAL - Required for production use  
+**Priority**: HIGH - Blocking for large file processing  
+**Target Start**: Next development session  
+**Target Completion**: 2025-06-25
+
+**Description**: Resume interrupted translations and progress tracking
+- **Critical Issue Identified**: Current system loses all progress on interruption
+- **Real-World Impact**: Hours of translation work lost when process stops
+- **Solution Required**: Progress persistence and resume functionality
+
+**Key Features Needed**:
+- Progress state persistence during translation
+- Automatic resume detection and continuation
+- Entry-level resume from exact stopping point
+- Batch processing resume capability
+- CLI resume commands (`--resume`, `--restart`)
+- Safe interruption handling (Ctrl+C)
+
 ### Story 02 - Enhanced Translation Quality (Medium Priority)
 **Status**: Planned  
 **Target Start**: 2025-06-28
