@@ -48,17 +48,17 @@ class Config:
     # Tone and style settings
     tone: ToneSettings = field(default_factory=ToneSettings)
     hungarian: HungarianSettings = field(default_factory=HungarianSettings)
-    
-    # Processing settings
+      # Processing settings
+    translation_mode: str = "line-by-line"  # "line-by-line", "batch", "whole-file"
     batch_size: int = 10
     progress_display: bool = True
     backup_original: bool = True
+    resume_enabled: bool = True
     
     # Output settings
     output_suffix: str = "{target_lang}"
     output_encoding: str = "utf-8"
-    preserve_formatting: bool = True
-    def __post_init__(self):
+    preserve_formatting: bool = True    def __post_init__(self):
         """Validate configuration after initialization."""
         # Ensure nested objects are properly initialized
         if not isinstance(self.tone, ToneSettings):
@@ -76,6 +76,10 @@ class Config:
             raise ValueError("Formality must be 'formal', 'informal', or 'auto'")
         if self.tone.style not in ["natural", "literal", "creative"]:
             raise ValueError("Style must be 'natural', 'literal', or 'creative'")
+        if self.translation_mode not in ["line-by-line", "batch", "whole-file"]:
+            raise ValueError("Translation mode must be 'line-by-line', 'batch', or 'whole-file'")
+        if self.batch_size < 1:
+            raise ValueError("Batch size must be at least 1")
     
     @classmethod
     def from_yaml(cls, config_path: Path) -> 'Config':
@@ -111,8 +115,7 @@ class Config:
             preserve_english_names=hungarian_data.get('preserve_english_names', True),
             handle_contractions=hungarian_data.get('handle_contractions', True)
         )
-        
-        return cls(
+          return cls(
             source_lang=translation.get('source_language', 'en'),
             target_lang=translation.get('target_language', 'hu'),
             model=translation.get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
@@ -125,9 +128,11 @@ class Config:
             ollama_timeout=ollama.get('timeout', 30),
             tone=tone,
             hungarian=hungarian,
+            translation_mode=processing.get('translation_mode', 'line-by-line'),
             batch_size=processing.get('batch_size', 10),
             progress_display=processing.get('progress_display', True),
             backup_original=processing.get('backup_original', True),
+            resume_enabled=processing.get('resume_enabled', True),
             output_suffix=output.get('suffix', '{target_lang}'),
             output_encoding=output.get('encoding', 'utf-8'),
             preserve_formatting=output.get('preserve_formatting', True)
