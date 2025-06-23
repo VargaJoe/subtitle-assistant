@@ -1,9 +1,86 @@
 # Implementation Tasks
 
 ## Project Status
-**Current Phase**: Story 01 - Core Translation Implementation COMPLETED ✅  
-**Last Updated**: 2025-06-22 21:01  
-**Next Milestone**: Story 02 - Enhanced Translation Quality
+**Current Phase**: Story 01 COMPLETED ✅ | Story 1.5 - Resume Management (HIGH PRIORITY)  
+**Last Updated**: 2025-06-22 22:47  
+**Next Milestone**: Story 1.5 - Resume and Progress Management (CRITICAL)
+
+## Current Priority: Story 1.5 - Resume Management
+
+### 🚨 CRITICAL ISSUE DISCOVERED
+During production testing with Magnum P.I. episodes (433 subtitle entries each):
+- Translation interrupted at entry 289/433 (66.7% complete)
+- **ALL PROGRESS LOST** - hours of translation work wasted
+- System has no way to resume from interruption point
+- This blocks production use with large subtitle files
+
+### 🎯 CHOSEN APPROACH: DUAL MODE WITH RESUME (2025-06-23)
+**Decision**: Implement both line-by-line and batch translation modes with comprehensive resume functionality
+
+#### **Mode 1: Line-by-Line with Resume (Default & Priority)**
+1. **Implement Progress Persistence**
+   - Save translation state after each successful entry
+   - Track current position in file processing  
+   - Store partial results safely in `.progress` files
+
+2. **Add Resume Functionality**
+   - Detect existing progress files automatically
+   - CLI commands: `--resume`, `--restart`
+   - Continue from exact stopping point
+
+3. **Safe Interruption Handling**
+   - Graceful Ctrl+C handling
+   - Ensure progress is saved before exit
+   - Prevent data corruption on forced stop
+
+#### **Mode 2: Batch Translation (Performance Enhancement)**
+4. **Implement Batch Mode**
+   - Send configurable number of entries per API call
+   - CLI switch: `--mode batch --batch-size 10`
+   - Resume functionality at batch boundaries
+   - Better performance for medium files
+
+#### **Mode 3: Whole File Translation (Experimental)**
+5. **Add Whole File Mode**
+   - Single API call for entire file
+   - CLI switch: `--mode whole-file`
+   - Best for small files (<50 entries)
+   - Limited resume capability (restart only)
+
+### 📊 PRODUCTION IMPACT
+- **Current State**: 21 Magnum P.I. episodes waiting for translation
+- **Estimated Time**: ~3 hours per episode without resume capability
+- **Risk**: Process interruption = complete restart required
+- **Solution**: Resume functionality = production-ready system
+
+---
+
+## Active Stories
+
+### Story 1.5 - Resume and Progress Management (IN PROGRESS ⚡)
+**Status**: IN PROGRESS - Dual mode translation with resume functionality  
+**Assigned**: Development Team  
+**Started**: 2025-06-23  
+**Target Completion**: 2025-06-25  
+**Priority**: HIGH (Blocks production use)
+
+#### ✅ COMPLETED TASKS
+- [x] Analyzed current translation process (line-by-line)
+- [x] Documented performance considerations and trade-offs
+- [x] Chose dual-mode approach with resume functionality
+- [x] Updated implementation plan with chosen approach
+
+#### 🔄 IN PROGRESS TASKS
+- [ ] Create new feature branch: `feature/resume-functionality`
+- [ ] Implement progress persistence system
+- [ ] Add resume detection and CLI options
+- [ ] Implement safe interruption handling (Ctrl+C)
+- [ ] Add batch translation mode for performance
+- [ ] Add whole-file translation mode (experimental)
+- [ ] Test resume functionality with Magnum P.I. episodes
+- [ ] Update documentation and CLI help
+
+---
 
 ## Completed Stories
 
