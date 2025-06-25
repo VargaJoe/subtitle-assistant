@@ -42,6 +42,8 @@ ollama:
 processing:
   translation_mode: "line-by-line"  # "line-by-line", "batch", "whole-file"
   batch_size: 10      # Number of subtitles to process in parallel
+  overlap_size: 2     # Number of entries to overlap between batches for context continuity
+  reassess_overlaps: true  # Allow reassessment of previous translations in overlap
   progress_display: true
   backup_original: true
   resume_enabled: true  # Enable resume functionality

@@ -95,6 +95,18 @@ Examples:
     )
     
     parser.add_argument(
+        "--overlap-size",
+        type=int,
+        help="Number of entries to overlap between batches (overrides config)"
+    )
+    
+    parser.add_argument(
+        "--no-overlap-reassess",
+        action="store_true",
+        help="Disable reassessment of overlapping entries"
+    )
+    
+    parser.add_argument(
         "--resume",
         action="store_true",
         help="Resume from existing progress (default: auto-detect)"
@@ -135,6 +147,10 @@ Examples:
         config.translation_mode = args.mode
     if args.batch_size:
         config.batch_size = args.batch_size
+    if args.overlap_size is not None:
+        config.overlap_size = args.overlap_size
+    if args.no_overlap_reassess:
+        config.reassess_overlaps = False
     if args.verbose:
         config.verbose = True
     

@@ -237,29 +237,46 @@ class SubtitleTranslator:
         """
         translated_entries = []
         batch_size = self.config.batch_size
+        overlap_size = self.config.overlap_size
         total_entries = len(entries)
         
-        for batch_start in range(0, total_entries, batch_size):
+        # Track which entries we've processed to avoid duplication
+        processed_indices = set()
+        
+        batch_start = 0
+        while batch_start < total_entries:
             batch_end = min(batch_start + batch_size, total_entries)
-            batch = entries[batch_start:batch_end]
+            
+            # Determine overlap range
+            overlap_start = max(0, batch_start - overlap_size) if batch_start > 0 else batch_start
+            overlap_end = batch_end
+            
+            # Get entries for this batch (including overlap)
+            full_batch = entries[overlap_start:overlap_end]
+            overlap_entries = entries[overlap_start:batch_start] if batch_start > 0 else []
+            new_entries = entries[batch_start:batch_end]
             
             current_index = start_offset + batch_end
             total_with_offset = progress.total_entries
             
             if self.config.verbose:
                 progress_pct = (current_index / total_with_offset) * 100
-                print(f"\rTranslating batch: {progress_pct:.1f}% ({current_index}/{total_with_offset})", end="", flush=True)
+                overlap_info = f" (overlap: {len(overlap_entries)})" if overlap_entries else ""
+                print(f"\rTranslating batch: {progress_pct:.1f}% ({current_index}/{total_with_offset}){overlap_info}", end="", flush=True)
             
             # Prepare batch text for translation
-            batch_texts = [entry.text for entry in batch]
-            batch_context = self._get_batch_context(entries, batch_start, len(batch))
+            batch_texts = [entry.text for entry in full_batch]
+            batch_context = self._get_batch_context(entries, overlap_start, len(full_batch))
             
             try:
-                # Translate entire batch
+                # Translate entire batch (including overlap for context)
                 translated_texts = self.ollama_client.translate_batch(batch_texts, batch_context)
                 
-                # Create translated entries
-                for i, (entry, translated_text) in enumerate(zip(batch, translated_texts)):
+                # Process results: handle overlap and new entries differently
+                for i, (entry, translated_text) in enumerate(zip(full_batch, translated_texts)):
+                    entry_index = overlap_start + i
+                    
+                    # Create translated entry
                     translated_entry = SubtitleEntry(
                         index=entry.index,
                         start_time=entry.start_time,
@@ -267,16 +284,34 @@ class SubtitleTranslator:
                         text=translated_text,
                         original_text=entry.text
                     )
-                    translated_entries.append(translated_entry)
-                    # Update progress after each entry in batch
-                    progress.add_translated_entry(translated_entry)
+                    
+                    if entry_index < batch_start:
+                        # This is an overlap entry - reassess if enabled
+                        if self.config.reassess_overlaps and entry_index in processed_indices:
+                            # Find existing translation by entry index and potentially update it
+                            for existing_idx, existing_entry in enumerate(translated_entries):
+                                if existing_entry.index == entry.index:
+                                    old_translation = existing_entry.text
+                                    if translated_text != old_translation:
+                                        self.logger.info(f"Reassessing entry {entry.index}: '{old_translation}' → '{translated_text}'")
+                                        translated_entries[existing_idx] = translated_entry
+                                    break
+                    else:
+                        # This is a new entry
+                        if entry_index not in processed_indices:
+                            translated_entries.append(translated_entry)
+                            processed_indices.add(entry_index)
+                            
+                            # Update progress for new entries only
+                            progress.add_translated_entry(translated_entry)
                     
             except Exception as e:
                 self.logger.warning(f"Batch translation failed, falling back to line-by-line: {e}")
-                # Fall back to line-by-line for this batch
-                for entry in batch:
+                # Fall back to line-by-line for new entries only (not overlaps)
+                for i, entry in enumerate(new_entries):
+                    entry_index = batch_start + i  # Define entry_index first
                     try:
-                        context = self._get_translation_context(entries, batch_start + batch.index(entry))
+                        context = self._get_translation_context(entries, entry_index)
                         translated_text = self.ollama_client.translate_with_retry(entry.text, context)
                         
                         translated_entry = SubtitleEntry(
@@ -286,14 +321,22 @@ class SubtitleTranslator:
                             text=translated_text,
                             original_text=entry.text
                         )
-                        translated_entries.append(translated_entry)
-                        progress.add_translated_entry(translated_entry)
+                        
+                        if entry_index not in processed_indices:
+                            translated_entries.append(translated_entry)
+                            processed_indices.add(entry_index)
+                            progress.add_translated_entry(translated_entry)
                         
                     except Exception as entry_error:
                         self.logger.error(f"Failed to translate entry {entry.index}: {entry_error}")
                         # Keep original as fallback
-                        translated_entries.append(entry)
-                        progress.add_translated_entry(entry)
+                        if entry_index not in processed_indices:
+                            translated_entries.append(entry)
+                            processed_indices.add(entry_index)
+                            progress.add_translated_entry(entry)
+            
+            # Move to next batch (accounting for overlap)
+            batch_start = batch_end
         
         if self.config.verbose:
             print()  # New line after progress indicator
