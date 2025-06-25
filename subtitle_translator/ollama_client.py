@@ -221,3 +221,163 @@ Important: Respond with ONLY the translated text, no explanations or quotes."""
                 continue
         
         raise ValueError(f"All models failed. Last error: {last_error}")
+    
+    def translate_batch(self, texts: List[str], context: Optional[str] = None) -> List[str]:
+        """
+        Translate multiple texts in a single API call for better performance.
+        
+        Args:
+            texts: List of texts to translate
+            context: Optional context for better translation
+            
+        Returns:
+            List of translated texts
+        """
+        if not texts:
+            return []
+        
+        # Prepare batch text with numbering
+        batch_text = "\n".join([f"[{i+1}] {text}" for i, text in enumerate(texts)])
+        
+        # Build batch translation prompt
+        prompt = self._build_batch_translation_prompt(batch_text, context)
+        
+        try:
+            # Make API call
+            response = self._make_request(prompt)
+            translated_content = response.get("response", "")
+            
+            # Parse response back to individual translations
+            translated_texts = self._parse_batch_translation(translated_content, len(texts))
+            
+            # Clean each translation
+            return [self._clean_translation(text) for text in translated_texts]
+            
+        except Exception as e:
+            self.logger.error(f"Batch translation failed: {e}")
+            raise
+    
+    def translate_whole_file(self, file_content: str) -> str:
+        """
+        Translate entire file content in a single API call.
+        
+        Args:
+            file_content: Complete file content to translate
+            
+        Returns:
+            Translated file content
+        """
+        # Build whole-file translation prompt
+        prompt = self._build_whole_file_translation_prompt(file_content)
+        
+        try:
+            # Make API call with extended timeout for large files
+            response = self._make_request(prompt, timeout=self.config.ollama_timeout * 3)
+            translated_content = response.get("response", "")
+            
+            return self._clean_translation(translated_content)
+            
+        except Exception as e:
+            self.logger.error(f"Whole-file translation failed: {e}")
+            raise
+
+    def _build_batch_translation_prompt(self, batch_text: str, context: Optional[str] = None) -> str:
+        """Build prompt for batch translation."""
+        formality = self.config.get_formality_instruction()
+        
+        prompt = f"""You are a professional subtitle translator. Translate the following numbered subtitle entries from {self.config.get_language_name(self.config.source_lang)} to {self.config.get_language_name(self.config.target_lang)}.
+
+Requirements:
+- {formality}
+- Maintain natural dialogue flow
+- Preserve subtitle timing and structure
+- Keep the same numbering format [1], [2], etc.
+- Translate each entry on a separate line
+
+"""
+        
+        if context:
+            prompt += f"Context from surrounding subtitles:\n{context}\n\n"
+        
+        prompt += f"Subtitle entries to translate:\n{batch_text}\n\nTranslated entries:"
+        
+        return prompt
+    
+    def _build_whole_file_translation_prompt(self, file_content: str) -> str:
+        """Build prompt for whole-file translation."""
+        formality = self.config.get_formality_instruction()
+        
+        prompt = f"""You are a professional subtitle translator. Translate the complete subtitle file from {self.config.get_language_name(self.config.source_lang)} to {self.config.get_language_name(self.config.target_lang)}.
+
+Requirements:
+- {formality}
+- Maintain natural dialogue flow and character consistency
+- Preserve subtitle timing and structure
+- Keep the same numbering format [1], [2], etc.
+- Translate each entry on a separate line
+- Maintain overall story coherence
+
+Complete subtitle file to translate:
+{file_content}
+
+Translated subtitle file:"""
+        
+        return prompt
+    
+    def _parse_batch_translation(self, translated_content: str, expected_count: int) -> List[str]:
+        """Parse batch translation response back to individual texts."""
+        lines = translated_content.strip().split('\n')
+        translated_texts = []
+        
+        for i in range(expected_count):
+            if i < len(lines):
+                line = lines[i].strip()
+                # Remove numbering if present: [1] text -> text
+                if line.startswith(f"[{i+1}]"):
+                    line = line[len(f"[{i+1}]"):].strip()
+                translated_texts.append(line)
+            else:
+                # Not enough lines in response, use empty string
+                self.logger.warning(f"Missing translation for batch item {i+1}")
+                translated_texts.append("")
+        
+        return translated_texts
+
+    def _make_request(self, prompt: str, timeout: Optional[int] = None) -> dict:
+        """
+        Make a request to the Ollama API.
+        
+        Args:
+            prompt: The prompt to send
+            timeout: Optional timeout for the request
+            
+        Returns:
+            Parsed JSON response
+            
+        Raises:
+            RequestException: If the request fails
+        """
+        payload = {
+            "model": self.config.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": self.config.temperature,
+                "top_p": 0.9,
+                "num_predict": 200
+            }
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json=payload,
+                timeout=timeout or self.config.ollama_timeout
+            )
+            response.raise_for_status()
+            
+            return response.json()
+            
+        except RequestException as e:
+            self.logger.error(f"Request to Ollama API failed: {e}")
+            raise

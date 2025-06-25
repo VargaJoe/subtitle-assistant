@@ -8,7 +8,7 @@ import signal
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .srt_parser import SubtitleEntry
 
@@ -44,6 +44,27 @@ class TranslationProgress:
         # Create progress file in same directory as output
         progress_name = f"{self.input_file.stem}.{self.output_file.stem}.progress"
         return self.output_file.parent / progress_name
+    
+    def _parse_timedelta(self, time_str: str):
+        """Parse timedelta from string format (H:MM:SS.mmm)."""
+        # Handle format like "0:00:12.345"
+        try:
+            parts = time_str.split(':')
+            hours = int(parts[0])
+            minutes = int(parts[1])
+            # Handle seconds and milliseconds
+            sec_parts = parts[2].split('.')
+            seconds = int(sec_parts[0])
+            if len(sec_parts) > 1:
+                # Convert milliseconds to microseconds
+                microseconds = int(sec_parts[1].ljust(6, '0')[:6])
+            else:
+                microseconds = 0
+            
+            return timedelta(hours=hours, minutes=minutes, seconds=seconds, microseconds=microseconds)
+        except Exception as e:
+            self.logger.error(f"Failed to parse timedelta '{time_str}': {e}")
+            return timedelta(0)
     
     def _setup_signal_handlers(self):
         """Set up signal handlers for graceful interruption."""
@@ -96,10 +117,14 @@ class TranslationProgress:
             # Reconstruct translated entries
             self.translated_entries = []
             for entry_data in data['translated_entries']:
+                # Convert string times back to timedelta
+                start_time = self._parse_timedelta(entry_data['start_time'])
+                end_time = self._parse_timedelta(entry_data['end_time'])
+                
                 entry = SubtitleEntry(
                     index=entry_data['index'],
-                    start_time=entry_data['start_time'],
-                    end_time=entry_data['end_time'],
+                    start_time=start_time,
+                    end_time=end_time,
                     text=entry_data['text'],
                     original_text=entry_data.get('original_text', '')
                 )
@@ -127,8 +152,8 @@ class TranslationProgress:
                 'translated_entries': [
                     {
                         'index': entry.index,
-                        'start_time': entry.start_time,
-                        'end_time': entry.end_time,
+                        'start_time': str(entry.start_time),  # Convert timedelta to string
+                        'end_time': str(entry.end_time),      # Convert timedelta to string
                         'text': entry.text,
                         'original_text': getattr(entry, 'original_text', '')
                     }

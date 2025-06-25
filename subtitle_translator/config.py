@@ -58,7 +58,9 @@ class Config:
     # Output settings
     output_suffix: str = "{target_lang}"
     output_encoding: str = "utf-8"
-    preserve_formatting: bool = True    def __post_init__(self):
+    preserve_formatting: bool = True
+    
+    def __post_init__(self):
         """Validate configuration after initialization."""
         # Ensure nested objects are properly initialized
         if not isinstance(self.tone, ToneSettings):
@@ -115,7 +117,8 @@ class Config:
             preserve_english_names=hungarian_data.get('preserve_english_names', True),
             handle_contractions=hungarian_data.get('handle_contractions', True)
         )
-          return cls(
+        
+        return cls(
             source_lang=translation.get('source_language', 'en'),
             target_lang=translation.get('target_language', 'hu'),
             model=translation.get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),

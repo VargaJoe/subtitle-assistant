@@ -36,13 +36,15 @@ translation:
 ollama:
   host: "localhost"
   port: 11434
-  timeout: 300
+  timeout: 120  # Increased timeout for large models (in seconds)
 
 # Processing settings
 processing:
+  translation_mode: "line-by-line"  # "line-by-line", "batch", "whole-file"
   batch_size: 10      # Number of subtitles to process in parallel
   progress_display: true
   backup_original: true
+  resume_enabled: true  # Enable resume functionality
   
 # Output settings
 output:

@@ -10,6 +10,7 @@ import time
 from .config import Config
 from .srt_parser import SRTParser, SubtitleEntry
 from .ollama_client import OllamaClient
+from .progress import TranslationProgress, ProgressMode
 
 
 class SubtitleTranslator:
@@ -48,29 +49,90 @@ class SubtitleTranslator:
             datefmt='%Y-%m-%d %H:%M:%S'
         )
     
-    def translate_file(self, input_path: Path, output_path: Path) -> None:
+    def translate_file(self, input_path: Path, output_path: Path, resume: bool = True) -> None:
         """
-        Translate a single SRT file.
+        Translate a single SRT file with resume support.
         
         Args:
             input_path: Path to input SRT file
             output_path: Path to output translated SRT file
+            resume: Whether to resume from existing progress
         """
+        # Ensure paths are Path objects
+        input_path = Path(input_path)
+        output_path = Path(output_path)
         start_time = time.time()
         
         self.logger.info(f"Starting translation: {input_path} -> {output_path}")
         self.logger.info(f"Languages: {self.config.source_lang} -> {self.config.target_lang}")
+        self.logger.info(f"Mode: {self.config.translation_mode}")
+        
+        # Initialize progress manager
+        progress = TranslationProgress(input_path, output_path)
         
         try:
             # Parse input file
             entries = self.parser.parse_file(input_path)
-            self.logger.info(f"Parsed {len(entries)} subtitle entries")
+            total_entries = len(entries)
             
-            # Translate entries
-            translated_entries = self._translate_entries(entries)
+            # Check for existing progress
+            start_index = 0
+            if resume and self.config.resume_enabled and progress.has_existing_progress():
+                if progress.load_progress():
+                    self.logger.info(progress.get_resume_summary())
+                    start_index = progress.current_index
+                    
+                    # Validate that we have the expected number of entries
+                    if progress.total_entries != total_entries:
+                        self.logger.warning(
+                            f"Entry count mismatch: progress file has {progress.total_entries}, "
+                            f"current file has {total_entries}. Starting fresh."
+                        )
+                        start_index = 0
+                        progress.translated_entries = []
+                        progress.current_index = 0
+                else:
+                    self.logger.warning("Failed to load progress, starting fresh")
+            
+            # Initialize or update progress
+            progress.initialize_translation(total_entries)
+            
+            if start_index == 0:
+                self.logger.info(f"Starting fresh translation of {total_entries} subtitle entries")
+            else:
+                remaining = total_entries - start_index
+                self.logger.info(f"Resuming translation: {remaining} entries remaining")
+            
+            # Translate entries based on mode
+            if self.config.translation_mode == ProgressMode.BATCH:
+                progress.translated_entries.extend(
+                    self._translate_entries_batch(entries[start_index:], progress, start_index)
+                )
+            elif self.config.translation_mode == ProgressMode.WHOLE_FILE:
+                if start_index > 0:
+                    self.logger.warning("Whole-file mode doesn't support resume, starting fresh")
+                    start_index = 0
+                    progress.translated_entries = []
+                    progress.current_index = 0
+                progress.translated_entries = self._translate_entries_whole_file(entries)
+                progress.current_index = total_entries
+            else:  # line-by-line (default)
+                progress.translated_entries.extend(
+                    self._translate_entries_line_by_line(entries[start_index:], progress, start_index)
+                )
             
             # Write output file
-            self.parser.write_file(translated_entries, output_path)
+            all_entries = progress.translated_entries
+            if start_index > 0:
+                # We already have some entries, just add the new ones
+                # Note: progress.translated_entries should already contain all entries
+                pass
+                
+            self.parser.write_file(all_entries, output_path)
+            
+            # Clean up progress file on successful completion
+            if progress.is_complete():
+                progress.cleanup_progress_file()
             
             # Report completion
             elapsed_time = time.time() - start_time
@@ -80,18 +142,26 @@ class SubtitleTranslator:
             )
             
             if self.config.verbose:
-                self._print_translation_summary(entries, translated_entries, elapsed_time)
+                self._print_translation_summary(entries, all_entries, elapsed_time)
                 
         except Exception as e:
             self.logger.error(f"Translation failed: {e}")
+            # Save progress even on failure
+            try:
+                progress.save_progress()
+                self.logger.info("Progress saved before exit")
+            except Exception as save_error:
+                self.logger.error(f"Failed to save progress: {save_error}")
             raise
     
-    def _translate_entries(self, entries: List[SubtitleEntry]) -> List[SubtitleEntry]:
+    def _translate_entries_line_by_line(self, entries: List[SubtitleEntry], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
         """
-        Translate all subtitle entries with context awareness.
+        Translate subtitle entries one by one with progress tracking.
         
         Args:
-            entries: List of original subtitle entries
+            entries: List of subtitle entries to translate
+            progress: Progress manager for saving state
+            start_offset: Starting index offset for progress display
             
         Returns:
             List of translated subtitle entries
@@ -100,13 +170,17 @@ class SubtitleTranslator:
         total_entries = len(entries)
         
         for i, entry in enumerate(entries):
+            current_index = start_offset + i + 1
+            total_with_offset = progress.total_entries
+            
             if self.config.verbose:
-                progress = (i + 1) / total_entries * 100
-                print(f"\rTranslating: {progress:.1f}% ({i + 1}/{total_entries})", end="", flush=True)
+                progress_pct = (current_index / total_with_offset) * 100
+                print(f"\rTranslating: {progress_pct:.1f}% ({current_index}/{total_with_offset})", end="", flush=True)
             
             # Get context for better translation
             context = self._get_translation_context(entries, i) if self.config.context_window > 0 else None
-              # Translate the text
+            
+            # Translate the text
             try:
                 # First try with retry on the primary model
                 translated_text = self.ollama_client.translate_with_retry(
@@ -126,6 +200,8 @@ class SubtitleTranslator:
                     self.logger.error(f"All translation attempts failed for entry {entry.index}: {fallback_error}")
                     # Keep original entry as fallback
                     translated_entries.append(entry)
+                    # Still update progress
+                    progress.add_translated_entry(entry)
                     continue
             
             # Create translated entry
@@ -138,9 +214,173 @@ class SubtitleTranslator:
             )
             
             translated_entries.append(translated_entry)
+            
+            # Update progress (this will auto-save periodically)
+            progress.add_translated_entry(translated_entry)
         
         if self.config.verbose:
             print()  # New line after progress indicator
+        
+        return translated_entries
+    
+    def _translate_entries_batch(self, entries: List[SubtitleEntry], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
+        """
+        Translate subtitle entries in batches for better performance.
+        
+        Args:
+            entries: List of subtitle entries to translate
+            progress: Progress manager for saving state
+            start_offset: Starting index offset for progress display
+            
+        Returns:
+            List of translated subtitle entries
+        """
+        translated_entries = []
+        batch_size = self.config.batch_size
+        total_entries = len(entries)
+        
+        for batch_start in range(0, total_entries, batch_size):
+            batch_end = min(batch_start + batch_size, total_entries)
+            batch = entries[batch_start:batch_end]
+            
+            current_index = start_offset + batch_end
+            total_with_offset = progress.total_entries
+            
+            if self.config.verbose:
+                progress_pct = (current_index / total_with_offset) * 100
+                print(f"\rTranslating batch: {progress_pct:.1f}% ({current_index}/{total_with_offset})", end="", flush=True)
+            
+            # Prepare batch text for translation
+            batch_texts = [entry.text for entry in batch]
+            batch_context = self._get_batch_context(entries, batch_start, len(batch))
+            
+            try:
+                # Translate entire batch
+                translated_texts = self.ollama_client.translate_batch(batch_texts, batch_context)
+                
+                # Create translated entries
+                for i, (entry, translated_text) in enumerate(zip(batch, translated_texts)):
+                    translated_entry = SubtitleEntry(
+                        index=entry.index,
+                        start_time=entry.start_time,
+                        end_time=entry.end_time,
+                        text=translated_text,
+                        original_text=entry.text
+                    )
+                    translated_entries.append(translated_entry)
+                    # Update progress after each entry in batch
+                    progress.add_translated_entry(translated_entry)
+                    
+            except Exception as e:
+                self.logger.warning(f"Batch translation failed, falling back to line-by-line: {e}")
+                # Fall back to line-by-line for this batch
+                for entry in batch:
+                    try:
+                        context = self._get_translation_context(entries, batch_start + batch.index(entry))
+                        translated_text = self.ollama_client.translate_with_retry(entry.text, context)
+                        
+                        translated_entry = SubtitleEntry(
+                            index=entry.index,
+                            start_time=entry.start_time,
+                            end_time=entry.end_time,
+                            text=translated_text,
+                            original_text=entry.text
+                        )
+                        translated_entries.append(translated_entry)
+                        progress.add_translated_entry(translated_entry)
+                        
+                    except Exception as entry_error:
+                        self.logger.error(f"Failed to translate entry {entry.index}: {entry_error}")
+                        # Keep original as fallback
+                        translated_entries.append(entry)
+                        progress.add_translated_entry(entry)
+        
+        if self.config.verbose:
+            print()  # New line after progress indicator
+        
+        return translated_entries
+    
+    def _translate_entries_whole_file(self, entries: List[SubtitleEntry]) -> List[SubtitleEntry]:
+        """
+        Translate entire file in a single API call (experimental).
+        
+        Args:
+            entries: List of all subtitle entries
+            
+        Returns:
+            List of translated subtitle entries
+        """
+        if len(entries) > 50:
+            self.logger.warning(
+                f"Large file ({len(entries)} entries) may exceed token limits in whole-file mode. "
+                "Consider using line-by-line or batch mode instead."
+            )
+        
+        # Prepare entire file content
+        file_content = []
+        for entry in entries:
+            file_content.append(f"[{entry.index}] {entry.text}")
+        
+        full_text = "\n".join(file_content)
+        
+        try:
+            # Translate entire file
+            translated_content = self.ollama_client.translate_whole_file(full_text)
+            
+            # Parse translated content back into entries
+            translated_entries = self._parse_whole_file_translation(entries, translated_content)
+            
+            return translated_entries
+            
+        except Exception as e:
+            self.logger.error(f"Whole-file translation failed: {e}")
+            raise
+    
+    def _get_batch_context(self, entries: List[SubtitleEntry], batch_start: int, batch_size: int) -> Optional[str]:
+        """Get context for batch translation."""
+        if self.config.context_window <= 0:
+            return None
+        
+        context_parts = []
+        
+        # Add context before batch
+        context_start = max(0, batch_start - self.config.context_window)
+        for i in range(context_start, batch_start):
+            context_parts.append(f"Previous: {entries[i].text}")
+        
+        # Add context after batch
+        batch_end = min(len(entries), batch_start + batch_size)
+        context_end = min(len(entries), batch_end + self.config.context_window)
+        for i in range(batch_end, context_end):
+            context_parts.append(f"Following: {entries[i].text}")
+        
+        return "\n".join(context_parts) if context_parts else None
+    
+    def _parse_whole_file_translation(self, original_entries: List[SubtitleEntry], translated_content: str) -> List[SubtitleEntry]:
+        """Parse whole-file translation back into individual entries."""
+        translated_entries = []
+        translated_lines = translated_content.strip().split('\n')
+        
+        # Try to match translated lines to original entries
+        for i, entry in enumerate(original_entries):
+            if i < len(translated_lines):
+                # Remove index prefix if present: [1] text -> text
+                translated_text = translated_lines[i]
+                if translated_text.startswith(f"[{entry.index}]"):
+                    translated_text = translated_text[len(f"[{entry.index}]"):].strip()
+                
+                translated_entry = SubtitleEntry(
+                    index=entry.index,
+                    start_time=entry.start_time,
+                    end_time=entry.end_time,
+                    text=translated_text,
+                    original_text=entry.text
+                )
+                translated_entries.append(translated_entry)
+            else:
+                # Not enough translated lines, keep original
+                self.logger.warning(f"Missing translation for entry {entry.index}")
+                translated_entries.append(entry)
         
         return translated_entries
     

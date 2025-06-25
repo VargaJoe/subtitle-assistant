@@ -65,12 +65,6 @@ Examples:
     )
     
     parser.add_argument(
-        "--timeout",
-        type=int,
-        help="Ollama request timeout in seconds (overrides config)"
-    )
-    
-    parser.add_argument(
         "--batch",
         action="store_true",
         help="Process multiple files in batch mode"
@@ -88,6 +82,30 @@ Examples:
         help="Validate setup and exit"
     )
     
+    parser.add_argument(
+        "--mode",
+        choices=["line-by-line", "batch", "whole-file"],
+        help="Translation mode: line-by-line (default), batch (faster), or whole-file (experimental)"
+    )
+    
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        help="Number of entries per batch (for batch mode, overrides config)"
+    )
+    
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from existing progress (default: auto-detect)"
+    )
+    
+    parser.add_argument(
+        "--restart", 
+        action="store_true",
+        help="Force restart, ignoring existing progress"
+    )
+
     args = parser.parse_args()
     
     # Load configuration
@@ -113,6 +131,10 @@ Examples:
         config.model = args.model
     if args.formality:
         config.tone.formality = args.formality
+    if args.mode:
+        config.translation_mode = args.mode
+    if args.batch_size:
+        config.batch_size = args.batch_size
     if args.verbose:
         config.verbose = True
     
@@ -132,6 +154,15 @@ Examples:
             print("❌ Translator setup has issues.")
             return 1
     
+    # Determine resume behavior
+    resume_enabled = True  # Default to auto-detect
+    if args.restart:
+        resume_enabled = False
+        print("🔄 Forcing restart, ignoring existing progress")
+    elif args.resume:
+        resume_enabled = True
+        print("▶️  Resume mode enabled")
+    
     try:
         # Handle single file or batch processing
         input_path = Path(args.input)
@@ -146,11 +177,11 @@ Examples:
             print(f"Processing {len(files)} files...")
             for file in files:
                 output_path = args.output or config.get_output_filename(file)
-                translator.translate_file(file, output_path)
+                translator.translate_file(file, output_path, resume=resume_enabled)
         else:
             # Single file processing
             output_path = args.output or config.get_output_filename(input_path)
-            translator.translate_file(input_path, output_path)
+            translator.translate_file(input_path, output_path, resume=resume_enabled)
             
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
