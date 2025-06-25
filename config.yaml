@@ -1,0 +1,59 @@
+# Subtitle Translator Configuration
+
+# Translation settings
+translation:
+  source_language: "en"
+  target_language: "hu"
+  
+  # Model selection - choose the best available model
+  # For Hungarian: jobautomation/OpenEuroLLM-Hungarian:latest is recommended
+  model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+  
+  # Alternative models (in order of preference)
+  fallback_models:
+    - "llama3.2"
+    - "llama3.1"
+    - "mistral"
+  
+  # Translation quality settings
+  temperature: 0.3  # Lower = more consistent, Higher = more creative
+  context_window: 3  # Number of surrounding subtitles for context
+  max_retries: 3
+  
+  # Tone and style preferences
+  tone:
+    formality: "auto"  # "formal", "informal", "auto" (detect from context)
+    style: "natural"   # "natural", "literal", "creative"
+    preserve_timing: true  # Keep translations short for subtitle timing
+    
+  # Language-specific settings
+  hungarian:
+    use_informal_when_appropriate: true  # Use "te" form for casual conversation
+    preserve_english_names: true        # Keep English names unchanged
+    handle_contractions: true           # Handle English contractions properly
+
+# Ollama connection settings
+ollama:
+  host: "localhost"
+  port: 11434
+  timeout: 120  # Increased timeout for large models (in seconds)
+
+# Processing settings
+processing:
+  translation_mode: "line-by-line"  # "line-by-line", "batch", "whole-file"
+  batch_size: 10      # Number of subtitles to process in parallel
+  progress_display: true
+  backup_original: true
+  resume_enabled: true  # Enable resume functionality
+  
+# Output settings
+output:
+  suffix: "{target_lang}"  # e.g., "filename.hu.srt"
+  encoding: "utf-8"
+  preserve_formatting: true
+  
+# Logging settings
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file: "translator.log"
+  console: true
