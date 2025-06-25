@@ -25,6 +25,67 @@ class HungarianSettings:
 
 
 @dataclass
+class ModelSettings:
+    """Settings for individual models in multi-model architecture."""
+    model: str = "jobautomation/OpenEuroLLM-Hungarian:latest"
+    temperature: float = 0.3
+    
+    
+@dataclass
+class ContextModelSettings(ModelSettings):
+    """Settings for the Context Model."""
+    temperature: float = 0.2
+    analyze_full_story: bool = True
+    character_profiling: bool = True
+    formality_detection: bool = True
+    
+
+@dataclass
+class TranslationModelSettings(ModelSettings):
+    """Settings for the Translation Model."""
+    temperature: float = 0.3
+    use_context_analysis: bool = True
+    cultural_adaptation: bool = True
+    
+
+@dataclass
+class TechnicalValidatorSettings(ModelSettings):
+    """Settings for the Technical Validator."""
+    temperature: float = 0.1
+    grammar_check: bool = True
+    naturalness_score: bool = True
+    quality_threshold: float = 0.7
+    
+
+@dataclass
+class DialogueSpecialistSettings(ModelSettings):
+    """Settings for the Dialogue Specialist."""
+    temperature: float = 0.25
+    voice_consistency: bool = True
+    emotional_tone: bool = True
+    formality_adjustment: bool = True
+    
+
+@dataclass
+class MultiModelPipelineSettings:
+    """Settings for the multi-model pipeline."""
+    parallel_processing: bool = False
+    quality_consensus: bool = True
+    fallback_to_single: bool = True
+    
+
+@dataclass
+class MultiModelSettings:
+    """Multi-model architecture settings."""
+    enabled: bool = False
+    context_model: ContextModelSettings = field(default_factory=ContextModelSettings)
+    translation_model: TranslationModelSettings = field(default_factory=TranslationModelSettings)
+    technical_validator: TechnicalValidatorSettings = field(default_factory=TechnicalValidatorSettings)
+    dialogue_specialist: DialogueSpecialistSettings = field(default_factory=DialogueSpecialistSettings)
+    pipeline: MultiModelPipelineSettings = field(default_factory=MultiModelPipelineSettings)
+    
+
+@dataclass
 class Config:
     """Configuration settings for the subtitle translator."""
     
@@ -48,7 +109,9 @@ class Config:
     # Tone and style settings
     tone: ToneSettings = field(default_factory=ToneSettings)
     hungarian: HungarianSettings = field(default_factory=HungarianSettings)
-      # Processing settings
+    multi_model: MultiModelSettings = field(default_factory=MultiModelSettings)
+    
+    # Processing settings
     translation_mode: str = "line-by-line"  # "line-by-line", "batch", "whole-file"
     batch_size: int = 10
     overlap_size: int = 2  # Number of entries to overlap between batches
@@ -69,6 +132,8 @@ class Config:
             self.tone = ToneSettings()
         if not isinstance(self.hungarian, HungarianSettings):
             self.hungarian = HungarianSettings()
+        if not isinstance(self.multi_model, MultiModelSettings):
+            self.multi_model = MultiModelSettings()
             
         if self.context_window < 0:
             raise ValueError("Context window must be non-negative")
@@ -111,6 +176,7 @@ class Config:
         output = data.get('output', {})
         tone_data = translation.get('tone', {})
         hungarian_data = translation.get('hungarian', {})
+        multi_model_data = data.get('multi_model', {})  # Multi-model is at root level
         
         # Create tone and Hungarian settings
         tone = ToneSettings(
@@ -123,6 +189,42 @@ class Config:
             use_informal_when_appropriate=hungarian_data.get('use_informal_when_appropriate', True),
             preserve_english_names=hungarian_data.get('preserve_english_names', True),
             handle_contractions=hungarian_data.get('handle_contractions', True)
+        )
+        
+        multi_model = MultiModelSettings(
+            enabled=multi_model_data.get('enabled', False),
+            context_model=ContextModelSettings(
+                model=multi_model_data.get('context_model', {}).get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
+                temperature=multi_model_data.get('context_model', {}).get('temperature', 0.2),
+                analyze_full_story=multi_model_data.get('context_model', {}).get('analyze_full_story', True),
+                character_profiling=multi_model_data.get('context_model', {}).get('character_profiling', True),
+                formality_detection=multi_model_data.get('context_model', {}).get('formality_detection', True)
+            ),
+            translation_model=TranslationModelSettings(
+                model=multi_model_data.get('translation_model', {}).get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
+                temperature=multi_model_data.get('translation_model', {}).get('temperature', 0.3),
+                use_context_analysis=multi_model_data.get('translation_model', {}).get('use_context_analysis', True),
+                cultural_adaptation=multi_model_data.get('translation_model', {}).get('cultural_adaptation', True)
+            ),
+            technical_validator=TechnicalValidatorSettings(
+                model=multi_model_data.get('technical_validator', {}).get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
+                temperature=multi_model_data.get('technical_validator', {}).get('temperature', 0.1),
+                grammar_check=multi_model_data.get('technical_validator', {}).get('grammar_check', True),
+                naturalness_score=multi_model_data.get('technical_validator', {}).get('naturalness_score', True),
+                quality_threshold=multi_model_data.get('technical_validator', {}).get('quality_threshold', 0.7)
+            ),
+            dialogue_specialist=DialogueSpecialistSettings(
+                model=multi_model_data.get('dialogue_specialist', {}).get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
+                temperature=multi_model_data.get('dialogue_specialist', {}).get('temperature', 0.25),
+                voice_consistency=multi_model_data.get('dialogue_specialist', {}).get('voice_consistency', True),
+                emotional_tone=multi_model_data.get('dialogue_specialist', {}).get('emotional_tone', True),
+                formality_adjustment=multi_model_data.get('dialogue_specialist', {}).get('formality_adjustment', True)
+            ),
+            pipeline=MultiModelPipelineSettings(
+                parallel_processing=multi_model_data.get('pipeline', {}).get('parallel_processing', False),
+                quality_consensus=multi_model_data.get('pipeline', {}).get('quality_consensus', True),
+                fallback_to_single=multi_model_data.get('pipeline', {}).get('fallback_to_single', True)
+            )
         )
         
         return cls(
@@ -138,6 +240,7 @@ class Config:
             ollama_timeout=ollama.get('timeout', 30),
             tone=tone,
             hungarian=hungarian,
+            multi_model=multi_model,
             translation_mode=processing.get('translation_mode', 'line-by-line'),
             batch_size=processing.get('batch_size', 10),
             overlap_size=processing.get('overlap_size', 2),

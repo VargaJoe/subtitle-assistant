@@ -47,7 +47,48 @@ processing:
   progress_display: true
   backup_original: true
   resume_enabled: true  # Enable resume functionality
+
+# Multi-Model Architecture Settings
+multi_model:
+  enabled: false  # Enable multi-model architecture (experimental)
   
+  # Context Model - Story understanding and character analysis
+  context_model:
+    model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+    temperature: 0.2  # Lower temperature for consistent analysis
+    analyze_full_story: true  # Analyze complete subtitle file for context
+    character_profiling: true  # Extract character voice patterns
+    formality_detection: true  # Detect formal/informal patterns
+    
+  # Translation Model - Primary translation with context
+  translation_model:
+    model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+    temperature: 0.3  # Balanced temperature for natural translation
+    use_context_analysis: true  # Use context model output
+    cultural_adaptation: true  # Apply cultural context adaptation
+    
+  # Technical Validator - Quality scoring and validation
+  technical_validator:
+    model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+    temperature: 0.1  # Very low temperature for consistent validation
+    grammar_check: true  # Validate grammar and syntax
+    naturalness_score: true  # Score translation naturalness
+    quality_threshold: 0.7  # Minimum quality score (0.0-1.0)
+    
+  # Dialogue Specialist - Character voice consistency
+  dialogue_specialist:
+    model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+    temperature: 0.25  # Lower temperature for consistency
+    voice_consistency: true  # Enforce character voice consistency
+    emotional_tone: true  # Preserve emotional tone
+    formality_adjustment: true  # Adjust formality per character
+    
+  # Multi-model pipeline settings
+  pipeline:
+    parallel_processing: false  # Process models sequentially for now
+    quality_consensus: true  # Require quality consensus from multiple models
+    fallback_to_single: true  # Fall back to single model if multi-model fails
+
 # Output settings
 output:
   suffix: "{target_lang}"  # e.g., "filename.hu.srt"
