@@ -51,6 +51,8 @@ class Config:
       # Processing settings
     translation_mode: str = "line-by-line"  # "line-by-line", "batch", "whole-file"
     batch_size: int = 10
+    overlap_size: int = 2  # Number of entries to overlap between batches
+    reassess_overlaps: bool = True  # Allow reassessment of previous translations
     progress_display: bool = True
     backup_original: bool = True
     resume_enabled: bool = True
@@ -81,6 +83,11 @@ class Config:
         if self.translation_mode not in ["line-by-line", "batch", "whole-file"]:
             raise ValueError("Translation mode must be 'line-by-line', 'batch', or 'whole-file'")
         if self.batch_size < 1:
+            raise ValueError("Batch size must be at least 1")
+        if self.overlap_size < 0:
+            raise ValueError("Overlap size must be non-negative")
+        if self.overlap_size >= self.batch_size:
+            raise ValueError("Overlap size must be smaller than batch size")
             raise ValueError("Batch size must be at least 1")
     
     @classmethod
@@ -133,6 +140,8 @@ class Config:
             hungarian=hungarian,
             translation_mode=processing.get('translation_mode', 'line-by-line'),
             batch_size=processing.get('batch_size', 10),
+            overlap_size=processing.get('overlap_size', 2),
+            reassess_overlaps=processing.get('reassess_overlaps', True),
             progress_display=processing.get('progress_display', True),
             backup_original=processing.get('backup_original', True),
             resume_enabled=processing.get('resume_enabled', True),
