@@ -17,3 +17,11 @@ My name is Thomas Magnum.
 5
 00:00:17,000 --> 00:00:20,000
 Nice to meet you, Thomas!
+
+6
+00:00:21,000 --> 00:00:24,000
+I'm a private investigator.
+
+7
+00:00:25,000 --> 00:00:28,000
+That sounds very interesting!
