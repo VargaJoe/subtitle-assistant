@@ -56,10 +56,10 @@ multi_model:
   context_model:
     model: "llama3.2:latest"  # Smaller, efficient model for context analysis
     temperature: 0.2  # Lower temperature for consistent analysis
-    analyze_full_story: true  # Enable with smaller model to avoid timeouts
+    analyze_full_story: false  # Disable to test basic functionality first
     character_profiling: true  # Extract character voice patterns
     formality_detection: true  # Detect formal/informal patterns
-    context_window: 15  # Analyze first 15 entries for context (reduced from 20)
+    context_window: 5  # Reduce to very small number for testing
     
   # Translation Model - Primary translation with context
   translation_model:
@@ -91,7 +91,7 @@ multi_model:
     fallback_to_single: true  # Fall back to single model if multi-model fails
     
     # Performance optimizations
-    skip_validation_for_high_confidence: true  # Skip validation if translation confidence > 0.8
+    skip_validation_for_high_confidence: false  # Force validation to always run for testing
     skip_dialogue_refinement: false  # Set to true to skip dialogue specialist for speed
     batch_validation: true  # Validate multiple entries at once for efficiency
 

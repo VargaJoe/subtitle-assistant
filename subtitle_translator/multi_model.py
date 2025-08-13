@@ -126,6 +126,12 @@ class MultiModelOrchestrator:
         """
         Translate entries using the multi-model architecture.
         
+        Each step updates the same result files incrementally:
+        Step 1: Context Analysis -> result.json (context)
+        Step 2: Translation -> result.json (context + translation)  
+        Step 3: Validation -> result.json (context + translation + validation)
+        Step 4: Dialogue -> result.json (context + translation + validation + dialogue)
+        
         Args:
             entries: Subtitle entries to translate
             progress: Progress manager
@@ -140,18 +146,61 @@ class MultiModelOrchestrator:
         
         self.logger.info("🚀 Starting multi-model translation pipeline...")
         
+        # Create results directory for intermediate files
+        results_dir = Path("output/multi_model_results")
+        results_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create single result file for the entire SRT file
+        input_filename = progress.input_file.stem  # Get filename without extension
+        result_file = results_dir / f"{input_filename}_results.json"
+        
+        # Initialize the main result structure
+        srt_results = {
+            "file_info": {
+                "input_file": str(progress.input_file),
+                "output_file": str(progress.output_file),
+                "total_entries": len(entries),
+                "processing_start": self._get_timestamp()
+            },
+            "entries": {}
+        }
+        
         # Phase 1: Analyze story context (if not already done)
         if self.story_context is None:
+            self.logger.info("📊 Step 1: Story Context Analysis")
             self.story_context = self.analyze_story_context(entries)
-            # Save context analysis result to progress file for user validation
-            if hasattr(progress, 'save_progress'):
-                progress.save_progress(context_result=self.story_context.__dict__)
+            
+            # Add context analysis to main result file
+            srt_results["step1_context_analysis"] = {
+                "timestamp": self._get_timestamp(),
+                "context": self.story_context.__dict__
+            }
+            self._save_step_result(result_file, srt_results)
         
         translated_entries = []
         
+        # Process each entry through the 4-stage pipeline
         for entry in entries:
+            self.logger.info(f"🔄 Processing entry {entry.index}/{len(entries)}: Multi-model pipeline")
+            
+            # Initialize entry results in the main structure
+            entry_key = f"entry_{entry.index:04d}"
+            srt_results["entries"][entry_key] = {
+                "index": entry.index,
+                "original_text": entry.text,
+                "start_time": str(entry.start_time),
+                "end_time": str(entry.end_time)
+            }
+            
             # Phase 2: Primary translation with context
+            self.logger.debug(f"Step 2: Translation (entry {entry.index})")
             translation_result = self._translate_with_context(entry, self.story_context)
+            srt_results["entries"][entry_key]["step2_translation"] = {
+                "text": translation_result.text,
+                "confidence": translation_result.confidence_score,
+                "timestamp": self._get_timestamp()
+            }
+            self._save_step_result(result_file, srt_results)
             
             # Phase 3: Technical validation (conditional)
             if (self.multi_config.pipeline.skip_validation_for_high_confidence and 
@@ -159,15 +208,39 @@ class MultiModelOrchestrator:
                 # Skip validation for high-confidence translations
                 validated_result = translation_result
                 self.logger.debug(f"Skipping validation for high-confidence entry {entry.index}")
+                srt_results["entries"][entry_key]["step3_validation"] = {"skipped": True, "reason": "high_confidence"}
             else:
+                self.logger.debug(f"Step 3: Validation (entry {entry.index})")
                 validated_result = self._validate_translation(entry, translation_result)
+                srt_results["entries"][entry_key]["step3_validation"] = {
+                    "text": validated_result.text,
+                    "confidence": validated_result.confidence_score,
+                    "quality_metrics": validated_result.quality_metrics,
+                    "timestamp": self._get_timestamp()
+                }
+            self._save_step_result(result_file, srt_results)
             
             # Phase 4: Dialogue specialist refinement (conditional)
             if self.multi_config.pipeline.skip_dialogue_refinement:
                 final_result = validated_result
                 self.logger.debug(f"Skipping dialogue refinement for entry {entry.index}")
+                srt_results["entries"][entry_key]["step4_dialogue"] = {"skipped": True, "reason": "disabled"}
             else:
+                self.logger.debug(f"Step 4: Dialogue Refinement (entry {entry.index})")
                 final_result = self._refine_dialogue(entry, validated_result, self.story_context)
+                srt_results["entries"][entry_key]["step4_dialogue"] = {
+                    "text": final_result.text,
+                    "confidence": final_result.confidence_score,
+                    "timestamp": self._get_timestamp()
+                }
+            
+            # Save final step results for this entry
+            srt_results["entries"][entry_key]["final_result"] = {
+                "text": final_result.text,
+                "confidence": final_result.confidence_score,
+                "pipeline_complete": True
+            }
+            self._save_step_result(result_file, srt_results)
             
             # Create final subtitle entry
             translated_entry = SubtitleEntry(
@@ -182,6 +255,13 @@ class MultiModelOrchestrator:
             progress.add_translated_entry(translated_entry)
             
             self.logger.debug(f"Multi-model translation completed for entry {entry.index}")
+        
+        # Mark processing as complete in the result file
+        srt_results["file_info"]["processing_end"] = self._get_timestamp()
+        srt_results["file_info"]["processing_complete"] = True
+        self._save_step_result(result_file, srt_results)
+        
+        self.logger.info(f"💾 Complete multi-model results saved to: {result_file}")
         
         self.logger.info("✅ Multi-model translation pipeline completed")
         return translated_entries
@@ -349,7 +429,7 @@ CONTEXT:
             self.logger.error(f"❌ Dialogue refinement failed for entry {original.index}: {e}")
             return translation
     
-    def _save_raw_model_response(self, response: str, stage: str, entry_index: int = None):
+    def _save_raw_model_response(self, response: str, stage: str, entry_index: Optional[int] = None):
         """Save raw model response to a .txt file for debugging."""
         from datetime import datetime
         import os
@@ -366,3 +446,17 @@ CONTEXT:
                 f.write(response)
         except Exception as e:
             self.logger.error(f"Failed to save raw model response: {e}")
+    
+    def _get_timestamp(self) -> str:
+        """Get current timestamp as string."""
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    def _save_step_result(self, file_path: Path, result_data: Dict[str, Any]):
+        """Save step result to JSON file."""
+        import json
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(result_data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            self.logger.error(f"Failed to save step result to {file_path}: {e}")

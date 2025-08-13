@@ -85,8 +85,8 @@ Examples:
     
     parser.add_argument(
         "--mode",
-        choices=["line-by-line", "batch", "whole-file"],
-        help="Translation mode: line-by-line (default), batch (faster), or whole-file (experimental)"
+        choices=["line-by-line", "batch", "whole-file", "multi-model"],
+        help="Translation mode: line-by-line (default), batch (faster), whole-file (experimental), or multi-model (4-stage AI pipeline)"
     )
     
     parser.add_argument(
