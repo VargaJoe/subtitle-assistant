@@ -119,6 +119,20 @@ Examples:
         help="Force restart, ignoring existing progress"
     )
 
+    # Multi-model step selection arguments
+    parser.add_argument(
+        "--steps",
+        nargs="+",
+        choices=["context", "translation", "validation", "dialogue"],
+        help="Select which multi-model steps to run (default: all). Example: --steps translation validation"
+    )
+    
+    parser.add_argument(
+        "--only-translation",
+        action="store_true", 
+        help="Run only translation step (Step 02)"
+    )
+
     args = parser.parse_args()
     
     # Load configuration
@@ -154,6 +168,22 @@ Examples:
         config.reassess_overlaps = False
     if args.verbose:
         config.verbose = True
+    
+    # Handle multi-model step selection
+    if args.only_translation:
+        # Run only translation step
+        config.multi_model.pipeline.run_context_analysis = False
+        config.multi_model.pipeline.run_translation = True
+        config.multi_model.pipeline.run_validation = False
+        config.multi_model.pipeline.run_dialogue_refinement = False
+        print("🎯 Running only Step 02: Translation")
+    elif args.steps:
+        # Custom step selection
+        config.multi_model.pipeline.run_context_analysis = "context" in args.steps
+        config.multi_model.pipeline.run_translation = "translation" in args.steps
+        config.multi_model.pipeline.run_validation = "validation" in args.steps
+        config.multi_model.pipeline.run_dialogue_refinement = "dialogue" in args.steps
+        print(f"🎯 Running selected steps: {', '.join(args.steps)}")
     
     # Initialize translator
     try:

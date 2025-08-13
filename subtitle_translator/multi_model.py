@@ -165,8 +165,8 @@ class MultiModelOrchestrator:
             "entries": {}
         }
         
-        # Phase 1: Analyze story context (if not already done)
-        if self.story_context is None:
+        # Phase 1: Analyze story context (if enabled and not already done)
+        if self.multi_config.pipeline.run_context_analysis and self.story_context is None:
             self.logger.info("📊 Step 1: Story Context Analysis")
             self.story_context = self.analyze_story_context(entries)
             
@@ -176,6 +176,17 @@ class MultiModelOrchestrator:
                 "context": self.story_context.__dict__
             }
             self._save_step_result(result_file, srt_results)
+        elif not self.multi_config.pipeline.run_context_analysis:
+            self.logger.info("⏭️  Step 1: Context Analysis SKIPPED")
+            # Use empty context if step is disabled
+            if self.story_context is None:
+                self.story_context = StoryContext(
+                    characters={},
+                    formality_patterns={},
+                    technical_terms=[],
+                    emotional_arcs={},
+                    story_summary=""
+                )
         
         translated_entries = []
         
@@ -192,22 +203,46 @@ class MultiModelOrchestrator:
                 "end_time": str(entry.end_time)
             }
             
-            # Phase 2: Primary translation with context
-            self.logger.debug(f"Step 2: Translation (entry {entry.index})")
-            translation_result = self._translate_with_context(entry, self.story_context)
-            srt_results["entries"][entry_key]["step2_translation"] = {
-                "text": translation_result.text,
-                "confidence": translation_result.confidence_score,
-                "timestamp": self._get_timestamp()
-            }
+            # Ensure we have a valid story context (empty if disabled)
+            current_context = self.story_context or StoryContext(
+                characters={},
+                formality_patterns={},
+                technical_terms=[],
+                emotional_arcs={},
+                story_summary=""
+            )
+            
+            # Phase 2: Primary translation with context (if enabled)
+            if self.multi_config.pipeline.run_translation:
+                self.logger.debug(f"Step 2: Translation (entry {entry.index})")
+                translation_result = self._translate_with_context(entry, current_context)
+                srt_results["entries"][entry_key]["step2_translation"] = {
+                    "text": translation_result.text,
+                    "confidence": translation_result.confidence_score,
+                    "timestamp": self._get_timestamp()
+                }
+            else:
+                self.logger.debug(f"⏭️  Step 2: Translation SKIPPED (entry {entry.index})")
+                # Use original text if translation is skipped
+                translation_result = TranslationResult(
+                    text=entry.text,
+                    confidence_score=0.5,
+                    quality_metrics={"grammar": 0.5, "naturalness": 0.5},
+                    model_consensus={"translation": entry.text}
+                )
+                srt_results["entries"][entry_key]["step2_translation"] = {"skipped": True}
             self._save_step_result(result_file, srt_results)
             
-            # Phase 3: Technical validation (conditional)
-            if (self.multi_config.pipeline.skip_validation_for_high_confidence and 
+            # Phase 3: Technical validation (if enabled and conditional)
+            if not self.multi_config.pipeline.run_validation:
+                validated_result = translation_result
+                self.logger.debug(f"⏭️  Step 3: Validation SKIPPED (entry {entry.index})")
+                srt_results["entries"][entry_key]["step3_validation"] = {"skipped": True, "reason": "disabled"}
+            elif (self.multi_config.pipeline.skip_validation_for_high_confidence and 
                 translation_result.confidence_score > 0.8):
                 # Skip validation for high-confidence translations
                 validated_result = translation_result
-                self.logger.debug(f"Skipping validation for high-confidence entry {entry.index}")
+                self.logger.debug(f"⏭️  Skipping validation for high-confidence entry {entry.index}")
                 srt_results["entries"][entry_key]["step3_validation"] = {"skipped": True, "reason": "high_confidence"}
             else:
                 self.logger.debug(f"Step 3: Validation (entry {entry.index})")
@@ -220,14 +255,14 @@ class MultiModelOrchestrator:
                 }
             self._save_step_result(result_file, srt_results)
             
-            # Phase 4: Dialogue specialist refinement (conditional)
-            if self.multi_config.pipeline.skip_dialogue_refinement:
+            # Phase 4: Dialogue specialist refinement (if enabled and conditional)
+            if not self.multi_config.pipeline.run_dialogue_refinement:
                 final_result = validated_result
-                self.logger.debug(f"Skipping dialogue refinement for entry {entry.index}")
+                self.logger.debug(f"⏭️  Step 4: Dialogue Refinement SKIPPED (entry {entry.index})")
                 srt_results["entries"][entry_key]["step4_dialogue"] = {"skipped": True, "reason": "disabled"}
             else:
                 self.logger.debug(f"Step 4: Dialogue Refinement (entry {entry.index})")
-                final_result = self._refine_dialogue(entry, validated_result, self.story_context)
+                final_result = self._refine_dialogue(entry, validated_result, current_context)
                 srt_results["entries"][entry_key]["step4_dialogue"] = {
                     "text": final_result.text,
                     "confidence": final_result.confidence_score,

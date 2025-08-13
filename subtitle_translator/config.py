@@ -76,6 +76,12 @@ class MultiModelPipelineSettings:
     skip_validation_for_high_confidence: bool = False
     skip_dialogue_refinement: bool = False
     
+    # Step selection - which steps to run
+    run_context_analysis: bool = True     # Step 01: Story understanding
+    run_translation: bool = True          # Step 02: Primary translation  
+    run_validation: bool = True           # Step 03: Quality validation
+    run_dialogue_refinement: bool = True  # Step 04: Dialogue polishing
+    
 
 @dataclass
 class MultiModelSettings:

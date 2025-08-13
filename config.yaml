@@ -54,7 +54,7 @@ multi_model:
   
   # Context Model - Story understanding and character analysis
   context_model:
-    model: "llama3.2:latest"  # Smaller, efficient model for context analysis
+    model: "gemma3n:latest"  # Using gemma3n for all steps
     temperature: 0.2  # Lower temperature for consistent analysis
     analyze_full_story: false  # Disable to test basic functionality first
     character_profiling: true  # Extract character voice patterns
@@ -63,14 +63,14 @@ multi_model:
     
   # Translation Model - Primary translation with context
   translation_model:
-    model: "gemma3:latest"
+    model: "gemma3n:latest"  # Using gemma3n for all steps
     temperature: 0.3  # Balanced temperature for natural translation
     use_context_analysis: true  # Use context model output
     cultural_adaptation: true  # Apply cultural context adaptation
     
   # Technical Validator - Quality scoring and validation
   technical_validator:
-    model: "gemma3:12b"  # Larger model for better quality validation
+    model: "gemma3n:latest"  # Using gemma3n for all steps
     temperature: 0.1  # Very low temperature for consistent validation
     grammar_check: true  # Validate grammar and syntax
     naturalness_score: true  # Score translation naturalness
@@ -78,7 +78,7 @@ multi_model:
     
   # Dialogue Specialist - Character voice consistency
   dialogue_specialist:
-    model: "gemma3:latest"
+    model: "gemma3n:latest"  # Using gemma3n for all steps
     temperature: 0.25  # Lower temperature for consistency
     voice_consistency: true  # Enforce character voice consistency
     emotional_tone: true  # Preserve emotional tone
@@ -89,6 +89,12 @@ multi_model:
     parallel_processing: false  # Process models sequentially for now
     quality_consensus: true  # Require quality consensus from multiple models
     fallback_to_single: true  # Fall back to single model if multi-model fails
+    
+    # Step selection - which steps to run (all enabled by default)
+    run_context_analysis: true     # Step 01: Story understanding
+    run_translation: true          # Step 02: Primary translation  
+    run_validation: true           # Step 03: Quality validation
+    run_dialogue_refinement: true  # Step 04: Dialogue polishing
     
     # Performance optimizations
     skip_validation_for_high_confidence: false  # Force validation to always run for testing
