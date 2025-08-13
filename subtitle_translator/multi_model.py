@@ -212,6 +212,20 @@ class MultiModelOrchestrator:
                 story_summary=""
             )
             
+            # Add step 1 context information to each entry
+            if self.multi_config.pipeline.run_context_analysis:
+                srt_results["entries"][entry_key]["step1_context"] = {
+                    "analyzed": True,
+                    "timestamp": self._get_timestamp(),
+                    "characters_found": len(current_context.characters) if current_context else 0,
+                    "technical_terms": len(current_context.technical_terms) if current_context else 0
+                }
+            else:
+                srt_results["entries"][entry_key]["step1_context"] = {
+                    "skipped": True,
+                    "reason": "disabled"
+                }
+            
             # Phase 2: Primary translation with context (if enabled)
             if self.multi_config.pipeline.run_translation:
                 self.logger.debug(f"Step 2: Translation (entry {entry.index})")
