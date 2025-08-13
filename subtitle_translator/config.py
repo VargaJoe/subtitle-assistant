@@ -27,7 +27,7 @@ class HungarianSettings:
 @dataclass
 class ModelSettings:
     """Settings for individual models in multi-model architecture."""
-    model: str = "jobautomation/OpenEuroLLM-Hungarian:latest"
+    model: str = "gemma3:latest"
     temperature: float = 0.3
     
     
@@ -38,6 +38,7 @@ class ContextModelSettings(ModelSettings):
     analyze_full_story: bool = True
     character_profiling: bool = True
     formality_detection: bool = True
+    context_window: int = 15  # Number of entries to analyze for context
     
 
 @dataclass
@@ -72,6 +73,8 @@ class MultiModelPipelineSettings:
     parallel_processing: bool = False
     quality_consensus: bool = True
     fallback_to_single: bool = True
+    skip_validation_for_high_confidence: bool = False
+    skip_dialogue_refinement: bool = False
     
 
 @dataclass
@@ -92,8 +95,8 @@ class Config:
     # Basic translation settings
     source_lang: str = "en"
     target_lang: str = "hu"
-    model: str = "jobautomation/OpenEuroLLM-Hungarian:latest"
-    fallback_models: List[str] = field(default_factory=lambda: ["llama3.2", "llama3.1", "mistral"])
+    model: str = "gemma3:latest"
+    fallback_models: List[str] = field(default_factory=lambda: ["llama3.2", "llama3.1", "jobautomation/OpenEuroLLM-Hungarian:latest", "mistral"])
     verbose: bool = False
     
     # Translation quality settings
@@ -194,27 +197,27 @@ class Config:
         multi_model = MultiModelSettings(
             enabled=multi_model_data.get('enabled', False),
             context_model=ContextModelSettings(
-                model=multi_model_data.get('context_model', {}).get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
+                model=multi_model_data.get('context_model', {}).get('model', 'llama3.2:latest'),
                 temperature=multi_model_data.get('context_model', {}).get('temperature', 0.2),
                 analyze_full_story=multi_model_data.get('context_model', {}).get('analyze_full_story', True),
                 character_profiling=multi_model_data.get('context_model', {}).get('character_profiling', True),
                 formality_detection=multi_model_data.get('context_model', {}).get('formality_detection', True)
             ),
             translation_model=TranslationModelSettings(
-                model=multi_model_data.get('translation_model', {}).get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
+                model=multi_model_data.get('translation_model', {}).get('model', 'gemma3:latest'),
                 temperature=multi_model_data.get('translation_model', {}).get('temperature', 0.3),
                 use_context_analysis=multi_model_data.get('translation_model', {}).get('use_context_analysis', True),
                 cultural_adaptation=multi_model_data.get('translation_model', {}).get('cultural_adaptation', True)
             ),
             technical_validator=TechnicalValidatorSettings(
-                model=multi_model_data.get('technical_validator', {}).get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
+                model=multi_model_data.get('technical_validator', {}).get('model', 'gemma3:12b'),
                 temperature=multi_model_data.get('technical_validator', {}).get('temperature', 0.1),
                 grammar_check=multi_model_data.get('technical_validator', {}).get('grammar_check', True),
                 naturalness_score=multi_model_data.get('technical_validator', {}).get('naturalness_score', True),
                 quality_threshold=multi_model_data.get('technical_validator', {}).get('quality_threshold', 0.7)
             ),
             dialogue_specialist=DialogueSpecialistSettings(
-                model=multi_model_data.get('dialogue_specialist', {}).get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
+                model=multi_model_data.get('dialogue_specialist', {}).get('model', 'llama3.2:latest'),
                 temperature=multi_model_data.get('dialogue_specialist', {}).get('temperature', 0.25),
                 voice_consistency=multi_model_data.get('dialogue_specialist', {}).get('voice_consistency', True),
                 emotional_tone=multi_model_data.get('dialogue_specialist', {}).get('emotional_tone', True),
@@ -223,15 +226,17 @@ class Config:
             pipeline=MultiModelPipelineSettings(
                 parallel_processing=multi_model_data.get('pipeline', {}).get('parallel_processing', False),
                 quality_consensus=multi_model_data.get('pipeline', {}).get('quality_consensus', True),
-                fallback_to_single=multi_model_data.get('pipeline', {}).get('fallback_to_single', True)
+                fallback_to_single=multi_model_data.get('pipeline', {}).get('fallback_to_single', True),
+                skip_validation_for_high_confidence=multi_model_data.get('pipeline', {}).get('skip_validation_for_high_confidence', False),
+                skip_dialogue_refinement=multi_model_data.get('pipeline', {}).get('skip_dialogue_refinement', False)
             )
         )
         
         return cls(
             source_lang=translation.get('source_language', 'en'),
             target_lang=translation.get('target_language', 'hu'),
-            model=translation.get('model', 'jobautomation/OpenEuroLLM-Hungarian:latest'),
-            fallback_models=translation.get('fallback_models', ['llama3.2', 'llama3.1', 'mistral']),
+            model=translation.get('model', 'gemma3:12b'),
+            fallback_models=translation.get('fallback_models', ['llama3.2', 'llama3.1', 'jobautomation/OpenEuroLLM-Hungarian:latest', 'mistral']),
             context_window=translation.get('context_window', 3),
             max_retries=translation.get('max_retries', 3),
             temperature=translation.get('temperature', 0.3),

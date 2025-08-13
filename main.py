@@ -30,6 +30,7 @@ Examples:
     
     parser.add_argument(
         "input",
+        nargs="?",
         help="Input SRT file(s) to translate"
     )
     
@@ -169,7 +170,11 @@ Examples:
         else:
             print("❌ Translator setup has issues.")
             return 1
-    
+
+    # Check if input is provided when not validating
+    if not args.input:
+        parser.error("Input file is required unless using --validate")
+
     # Determine resume behavior
     resume_enabled = True  # Default to auto-detect
     if args.restart:

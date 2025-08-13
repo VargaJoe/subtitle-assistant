@@ -6,8 +6,8 @@ translation:
   target_language: "hu"
   
   # Model selection - choose the best available model
-  # For Hungarian: jobautomation/OpenEuroLLM-Hungarian:latest is recommended
-  model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+  # Using Gemma3 for better performance and availability
+  model: "gemma3:latest"
   
   # Alternative models (in order of preference)
   fallback_models:
@@ -36,7 +36,7 @@ translation:
 ollama:
   host: "localhost"
   port: 11434
-  timeout: 120  # Increased timeout for large models (in seconds)
+  timeout: 300  # Increased timeout for large models (in seconds)
 
 # Processing settings
 processing:
@@ -50,26 +50,27 @@ processing:
 
 # Multi-Model Architecture Settings
 multi_model:
-  enabled: false  # Enable multi-model architecture (experimental)
+  enabled: true  # Enable multi-model architecture
   
   # Context Model - Story understanding and character analysis
   context_model:
-    model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+    model: "llama3.2:latest"  # Smaller, efficient model for context analysis
     temperature: 0.2  # Lower temperature for consistent analysis
-    analyze_full_story: true  # Analyze complete subtitle file for context
+    analyze_full_story: true  # Enable with smaller model to avoid timeouts
     character_profiling: true  # Extract character voice patterns
     formality_detection: true  # Detect formal/informal patterns
+    context_window: 15  # Analyze first 15 entries for context (reduced from 20)
     
   # Translation Model - Primary translation with context
   translation_model:
-    model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+    model: "gemma3:latest"
     temperature: 0.3  # Balanced temperature for natural translation
     use_context_analysis: true  # Use context model output
     cultural_adaptation: true  # Apply cultural context adaptation
     
   # Technical Validator - Quality scoring and validation
   technical_validator:
-    model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+    model: "gemma3:12b"  # Larger model for better quality validation
     temperature: 0.1  # Very low temperature for consistent validation
     grammar_check: true  # Validate grammar and syntax
     naturalness_score: true  # Score translation naturalness
@@ -77,7 +78,7 @@ multi_model:
     
   # Dialogue Specialist - Character voice consistency
   dialogue_specialist:
-    model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+    model: "gemma3:latest"
     temperature: 0.25  # Lower temperature for consistency
     voice_consistency: true  # Enforce character voice consistency
     emotional_tone: true  # Preserve emotional tone
@@ -88,6 +89,11 @@ multi_model:
     parallel_processing: false  # Process models sequentially for now
     quality_consensus: true  # Require quality consensus from multiple models
     fallback_to_single: true  # Fall back to single model if multi-model fails
+    
+    # Performance optimizations
+    skip_validation_for_high_confidence: true  # Skip validation if translation confidence > 0.8
+    skip_dialogue_refinement: false  # Set to true to skip dialogue specialist for speed
+    batch_validation: true  # Validate multiple entries at once for efficiency
 
 # Output settings
 output:

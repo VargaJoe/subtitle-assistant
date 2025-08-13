@@ -11,6 +11,7 @@ from .config import Config
 from .srt_parser import SRTParser, SubtitleEntry
 from .ollama_client import OllamaClient
 from .progress import TranslationProgress, ProgressMode
+from .multi_model import MultiModelOrchestrator
 
 
 class SubtitleTranslator:
@@ -21,6 +22,7 @@ class SubtitleTranslator:
         self.config = config
         self.parser = SRTParser()
         self.ollama_client = OllamaClient(config)
+        self.multi_model_orchestrator = MultiModelOrchestrator(config)
         
         # Set up logging
         self._setup_logging()
@@ -104,7 +106,11 @@ class SubtitleTranslator:
                 self.logger.info(f"Resuming translation: {remaining} entries remaining")
             
             # Translate entries based on mode
-            if self.config.translation_mode == ProgressMode.BATCH:
+            if self.multi_model_orchestrator.is_enabled():
+                # Use multi-model pipeline for the whole file
+                progress.translated_entries = self.multi_model_orchestrator.translate_with_multimodel(entries, progress)
+                progress.current_index = len(progress.translated_entries)
+            elif self.config.translation_mode == ProgressMode.BATCH:
                 progress.translated_entries.extend(
                     self._translate_entries_batch(entries[start_index:], progress, start_index)
                 )
@@ -166,6 +172,10 @@ class SubtitleTranslator:
         Returns:
             List of translated subtitle entries
         """
+        if self.multi_model_orchestrator.is_enabled():
+            # Use multi-model pipeline for line-by-line mode as well
+            return self.multi_model_orchestrator.translate_with_multimodel(entries, progress)
+        
         translated_entries = []
         total_entries = len(entries)
         

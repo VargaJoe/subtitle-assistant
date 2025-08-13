@@ -83,15 +83,9 @@ class MultiModelOrchestrator:
     def analyze_story_context(self, entries: List[SubtitleEntry]) -> StoryContext:
         """
         Analyze the complete story using the Context Model.
-        
-        Args:
-            entries: Complete list of subtitle entries
-            
-        Returns:
-            StoryContext with character profiles and story analysis
+        Only performs context analysis, never translation.
         """
         if not self.multi_config.context_model.analyze_full_story:
-            # Return minimal context if full analysis is disabled
             return StoryContext(
                 characters={},
                 formality_patterns={},
@@ -99,32 +93,23 @@ class MultiModelOrchestrator:
                 emotional_arcs={},
                 story_summary=""
             )
-        
-        self.logger.info("🧠 Analyzing story context with Context Model...")
-        
-        # Prepare story text for analysis
+        self.logger.info("🧠 [CONTEXT MODEL] Analyzing story context with Context Model (no translation)...")
         story_text = self._prepare_story_text(entries)
-        
-        # Create context analysis prompt
         prompt = self._create_context_analysis_prompt(story_text)
-        
+        self.logger.debug(f"[CONTEXT MODEL] Prompt sent to model:\n{prompt}")
         try:
-            # Use Context Model for analysis
-            response = self.context_client.translate_with_retry(
-                prompt, 
-                ""  # No additional context needed
+            response = self.context_client.query_model(
+                prompt,
+                temperature=self.multi_config.context_model.temperature
             )
-            
-            # Parse the context analysis response
+            self._save_raw_model_response(response, stage="context_analysis")
+            self.logger.debug(f"[CONTEXT MODEL] Raw response from model:\n{response}")
             context = self._parse_context_analysis(response)
             self.story_context = context
-            
-            self.logger.info(f"✅ Story context analyzed: {len(context.characters)} characters identified")
+            self.logger.info(f"✅ [CONTEXT MODEL] Story context analyzed: {len(context.characters)} characters identified")
             return context
-            
         except Exception as e:
-            self.logger.error(f"❌ Context analysis failed: {e}")
-            # Return minimal context on failure
+            self.logger.error(f"❌ [CONTEXT MODEL] Context analysis failed: {e}")
             return StoryContext(
                 characters={},
                 formality_patterns={},
@@ -158,6 +143,9 @@ class MultiModelOrchestrator:
         # Phase 1: Analyze story context (if not already done)
         if self.story_context is None:
             self.story_context = self.analyze_story_context(entries)
+            # Save context analysis result to progress file for user validation
+            if hasattr(progress, 'save_progress'):
+                progress.save_progress(context_result=self.story_context.__dict__)
         
         translated_entries = []
         
@@ -165,11 +153,21 @@ class MultiModelOrchestrator:
             # Phase 2: Primary translation with context
             translation_result = self._translate_with_context(entry, self.story_context)
             
-            # Phase 3: Technical validation
-            validated_result = self._validate_translation(entry, translation_result)
+            # Phase 3: Technical validation (conditional)
+            if (self.multi_config.pipeline.skip_validation_for_high_confidence and 
+                translation_result.confidence_score > 0.8):
+                # Skip validation for high-confidence translations
+                validated_result = translation_result
+                self.logger.debug(f"Skipping validation for high-confidence entry {entry.index}")
+            else:
+                validated_result = self._validate_translation(entry, translation_result)
             
-            # Phase 4: Dialogue specialist refinement
-            final_result = self._refine_dialogue(entry, validated_result, self.story_context)
+            # Phase 4: Dialogue specialist refinement (conditional)
+            if self.multi_config.pipeline.skip_dialogue_refinement:
+                final_result = validated_result
+                self.logger.debug(f"Skipping dialogue refinement for entry {entry.index}")
+            else:
+                final_result = self._refine_dialogue(entry, validated_result, self.story_context)
             
             # Create final subtitle entry
             translated_entry = SubtitleEntry(
@@ -190,10 +188,15 @@ class MultiModelOrchestrator:
     
     def _prepare_story_text(self, entries: List[SubtitleEntry]) -> str:
         """Prepare story text for context analysis."""
-        # Combine subtitle texts with timing context
+        # Get context window size from config, default to 15 if not specified
+        context_window = getattr(self.multi_config.context_model, 'context_window', 15)
+        
+        # Combine subtitle texts with timing context - limit based on context_window
         lines = []
-        for entry in entries[:50]:  # Analyze first 50 entries for context
+        for entry in entries[:context_window]:
             lines.append(f"[{entry.index}] {entry.text}")
+        
+        self.logger.info(f"📋 Preparing story context from first {len(lines)} entries")
         return "\n".join(lines)
     
     def _create_context_analysis_prompt(self, story_text: str) -> str:
@@ -226,20 +229,140 @@ Respond in a structured format that can be parsed."""
     
     def _translate_with_context(self, entry: SubtitleEntry, context: StoryContext) -> TranslationResult:
         """Translate using the Translation Model with story context."""
-        # TODO: Implement context-aware translation
-        return TranslationResult(
-            text=entry.text,  # Placeholder
-            confidence_score=0.5,
-            quality_metrics={"grammar": 0.5, "naturalness": 0.5},
-            model_consensus={"translation": entry.text}
-        )
+        # Build a context-aware prompt for the translation model
+        prompt = f"""
+Translate the following subtitle into Hungarian, considering the context below.
+
+SUBTITLE:
+{entry.text}
+
+CONTEXT:
+- Characters: {', '.join(context.characters.keys()) if context.characters else 'N/A'}
+- Formality Patterns: {context.formality_patterns}
+- Technical Terms: {', '.join(context.technical_terms) if context.technical_terms else 'N/A'}
+- Emotional Arcs: {context.emotional_arcs}
+- Story Summary: {context.story_summary}
+
+Requirements:
+- Use appropriate formality and character voice.
+- Preserve technical terms and emotional tone.
+- Output only the translated Hungarian subtitle.
+"""
+        try:
+            response = self.translation_client.translate_with_retry(prompt, "")
+            self._save_raw_model_response(response, stage="translation", entry_index=entry.index)
+            translated_text = response.strip()
+            # Basic confidence/quality metrics (can be improved later)
+            confidence = 0.9 if translated_text and translated_text != entry.text else 0.5
+            quality_metrics = {"grammar": 0.8, "naturalness": 0.8} if confidence > 0.7 else {"grammar": 0.5, "naturalness": 0.5}
+            return TranslationResult(
+                text=translated_text,
+                confidence_score=confidence,
+                quality_metrics=quality_metrics,
+                model_consensus={"translation": translated_text}
+            )
+        except Exception as e:
+            self.logger.error(f"❌ Translation failed for entry {entry.index}: {e}")
+            # Fallback: return original text with low confidence
+            return TranslationResult(
+                text=entry.text,
+                confidence_score=0.2,
+                quality_metrics={"grammar": 0.2, "naturalness": 0.2},
+                model_consensus={"translation": entry.text}
+            )
     
     def _validate_translation(self, original: SubtitleEntry, translation: TranslationResult) -> TranslationResult:
         """Validate translation using the Technical Validator."""
-        # TODO: Implement technical validation
-        return translation
+        prompt = f"""
+Evaluate the following Hungarian subtitle translation for grammar, naturalness, and accuracy. Provide a confidence score (0-1), and suggest improvements if needed.
+
+ORIGINAL ENGLISH:
+{original.text}
+
+TRANSLATED HUNGARIAN:
+{translation.text}
+
+Requirements:
+- Rate grammar and naturalness (0-1 scale)
+- Suggest improvements if translation is awkward or inaccurate
+- Output: JSON with keys: confidence, grammar, naturalness, suggestion (if any)
+"""
+        try:
+            response = self.validator_client.query_model(
+                prompt, 
+                temperature=self.multi_config.technical_validator.temperature
+            )
+            self._save_raw_model_response(response, stage="validation", entry_index=original.index)
+            # Attempt to parse JSON-like response (robust fallback)
+            import json
+            try:
+                result = json.loads(response)
+                confidence = float(result.get("confidence", 0.5))
+                grammar = float(result.get("grammar", 0.5))
+                naturalness = float(result.get("naturalness", 0.5))
+                suggestion = result.get("suggestion", None)
+            except Exception:
+                confidence = 0.5
+                grammar = 0.5
+                naturalness = 0.5
+                suggestion = None
+            # If suggestion is provided and confidence is low, use it
+            final_text = suggestion if suggestion and confidence < 0.7 else translation.text
+            return TranslationResult(
+                text=final_text,
+                confidence_score=confidence,
+                quality_metrics={"grammar": grammar, "naturalness": naturalness},
+                model_consensus={"translation": final_text}
+            )
+        except Exception as e:
+            self.logger.error(f"❌ Validation failed for entry {original.index}: {e}")
+            return translation
     
     def _refine_dialogue(self, original: SubtitleEntry, translation: TranslationResult, context: StoryContext) -> TranslationResult:
         """Refine dialogue using the Dialogue Specialist."""
-        # TODO: Implement dialogue refinement
-        return translation
+        prompt = f"""
+Polish the following Hungarian subtitle for natural conversational flow and character voice, considering the context below. Only output the improved Hungarian subtitle, or the original if no improvement is needed.
+
+SUBTITLE:
+{translation.text}
+
+CONTEXT:
+- Characters: {', '.join(context.characters.keys()) if context.characters else 'N/A'}
+- Emotional Arcs: {context.emotional_arcs}
+- Story Summary: {context.story_summary}
+"""
+        try:
+            response = self.dialogue_client.translate_with_retry(prompt, "")
+            self._save_raw_model_response(response, stage="dialogue", entry_index=original.index)
+            improved_text = response.strip()
+            # Use improved text if it differs and is not empty
+            if improved_text and improved_text != translation.text:
+                return TranslationResult(
+                    text=improved_text,
+                    confidence_score=translation.confidence_score,
+                    quality_metrics=translation.quality_metrics,
+                    model_consensus={"translation": improved_text}
+                )
+            else:
+                return translation
+        except Exception as e:
+            self.logger.error(f"❌ Dialogue refinement failed for entry {original.index}: {e}")
+            return translation
+    
+    def _save_raw_model_response(self, response: str, stage: str, entry_index: int = None):
+        """Save raw model response to a .txt file for debugging."""
+        from datetime import datetime
+        import os
+        base_dir = Path("output/raw_model_responses")
+        base_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if entry_index is not None:
+            filename = f"{stage}_entry{entry_index}_{timestamp}.txt"
+        else:
+            filename = f"{stage}_{timestamp}.txt"
+        file_path = base_dir / filename
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(response)
+        except Exception as e:
+            self.logger.error(f"Failed to save raw model response: {e}")

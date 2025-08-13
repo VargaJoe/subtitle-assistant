@@ -381,3 +381,56 @@ Translated subtitle file:"""
         except RequestException as e:
             self.logger.error(f"Request to Ollama API failed: {e}")
             raise
+    
+    def query_model(self, prompt: str, temperature: float = 0.3) -> str:
+        """
+        Send a general query to the model (not specifically for translation).
+        
+        Args:
+            prompt: The prompt to send to the model
+            temperature: Temperature for the model response
+            
+        Returns:
+            Model response text
+            
+        Raises:
+            ConnectionError: If Ollama service is not available
+            ValueError: If query fails
+        """
+        if not self.is_available():
+            raise ConnectionError("Ollama service is not available")
+        
+        # Make API request
+        payload = {
+            "model": self.config.model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "top_p": 0.9,
+                "num_predict": 500  # Allow more tokens for context analysis
+            }
+        }
+        
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json=payload,
+                timeout=self.config.ollama_timeout
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            response_text = result.get("response", "").strip()
+            
+            if not response_text:
+                raise ValueError("Empty response from model")
+            
+            if self.config.verbose:
+                self.logger.info(f"Model query completed: {len(response_text)} characters")
+            
+            return response_text
+            
+        except RequestException as e:
+            self.logger.error(f"Model query failed: {e}")
+            raise ValueError(f"Query failed: {e}")

@@ -430,6 +430,8 @@ Batch 3: Review [19-20] + Translate [21-30]
 - [ ] Generate context hints for translation models
 
 **Task 2.2: Multi-Model Translation Pipeline**
+- [x] Implement context-aware translation logic in MultiModelOrchestrator
+- [x] Integrate MultiModelOrchestrator into SubtitleTranslator and main app
 - [ ] Design model role architecture
 - [ ] Implement model chaining system
 - [ ] Add model-specific prompt engineering
@@ -442,7 +444,8 @@ Batch 3: Review [19-20] + Translate [21-30]
 - [ ] Optimize overlap performance
 
 **Task 2.4: Quality Validation Framework**
-- [ ] Implement Technical Validator model
+- [x] Implement Technical Validator model in MultiModelOrchestrator
+- [x] Implement Dialogue Specialist logic in MultiModelOrchestrator
 - [ ] Create quality scoring system
 - [ ] Add translation consistency checking
 - [ ] Flag problematic translations for review
@@ -553,3 +556,17 @@ processing:
 - Focus on Hungarian translation initially
 - Maintain clean, modular architecture for future enhancements
 - Regular testing with real subtitle files from subtitles/ directory
+
+## ⏸️ Side Demo: Speech-to-Text Extraction (Paused)
+**Status:** Paused (2025-07-06)
+- Hungarian Whisper speech-to-text demo tested, but not production ready
+- Progress saving, chunking, and resume logic prototyped
+- Quality and result parsing issues remain
+- Will revisit after SRT translation pipeline is complete
+
+---
+
+## Next Focus: SRT Translation Pipeline (Multi-Model Architecture)
+- Refocus on original branch goal: advanced SRT-to-SRT translation
+- Complete multi-model pipeline for context, translation, validation, and dialogue
+- Next step: Review current multi-model implementation and plan next tasks

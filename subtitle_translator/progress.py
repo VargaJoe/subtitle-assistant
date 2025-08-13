@@ -140,44 +140,39 @@ class TranslationProgress:
             self.logger.error(f"Failed to load progress: {e}")
             return False
     
-    def save_progress(self):
-        """Save current progress to file."""
-        try:
-            # Prepare data for serialization
-            progress_data = {
-                'input_file': str(self.input_file),
-                'output_file': str(self.output_file),
-                'current_index': self.current_index,
-                'total_entries': self.total_entries,
-                'translated_entries': [
-                    {
-                        'index': entry.index,
-                        'start_time': str(entry.start_time),  # Convert timedelta to string
-                        'end_time': str(entry.end_time),      # Convert timedelta to string
-                        'text': entry.text,
-                        'original_text': getattr(entry, 'original_text', '')
-                    }
-                    for entry in self.translated_entries
-                ],
-                'timestamp': datetime.now().isoformat(),
-                'start_time': self.start_time.isoformat()
-            }
-            
-            # Ensure output directory exists
-            self.progress_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            # Write progress file atomically
-            temp_file = self.progress_file.with_suffix('.progress.tmp')
-            with open(temp_file, 'w', encoding='utf-8') as f:
-                json.dump(progress_data, f, indent=2, ensure_ascii=False)
-            
-            # Atomic move
-            temp_file.replace(self.progress_file)
-            self.last_save_time = datetime.now()
-            
-        except Exception as e:
-            self.logger.error(f"Failed to save progress: {e}")
-            raise
+    def _entry_to_dict(self, entry):
+        """Convert SubtitleEntry to dict with timedelta fields as strings."""
+        d = entry.__dict__.copy()
+        if isinstance(d.get("start_time"), timedelta):
+            d["start_time"] = self._timedelta_to_str(d["start_time"])
+        if isinstance(d.get("end_time"), timedelta):
+            d["end_time"] = self._timedelta_to_str(d["end_time"])
+        return d
+
+    def _timedelta_to_str(self, td):
+        """Convert timedelta to SRT time string (HH:MM:SS,mmm)."""
+        total_seconds = int(td.total_seconds())
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        milliseconds = int(td.microseconds / 1000)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
+
+    def save_progress(self, context_result=None):
+        """Save current translation progress to a .progress file."""
+        progress_data = {
+            "input_file": str(self.input_file),
+            "output_file": str(self.output_file),
+            "current_index": self.current_index,
+            "total_entries": self.total_entries,
+            "translated_entries": [self._entry_to_dict(e) for e in self.translated_entries],
+            "timestamp": datetime.now().isoformat(),
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+        }
+        if context_result is not None:
+            progress_data["context_analysis"] = context_result
+        with open(self.progress_file, "w", encoding="utf-8") as f:
+            json.dump(progress_data, f, ensure_ascii=False, indent=2)
     
     def add_translated_entry(self, entry: SubtitleEntry):
         """
