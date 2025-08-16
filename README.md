@@ -59,30 +59,103 @@ ollama pull jobautomation/OpenEuroLLM-Hungarian:latest
 
 ## 🚀 Usage
 
-### Basic Translation
+### Quick Start Examples
 
 ```bash
-# Translate single file
-python main.py input.srt
+# Translate a single SRT file
+python main.py "subtitles\show_s01e01.srt"
 
-# Specify output file
-python main.py input.srt -o output.srt
+# Translate with specific output location
+python main.py "subtitles\episode.srt" -o "output\episode_hungarian.srt"
 
-# Use specific model and formality
-python main.py input.srt --model "jobautomation/OpenEuroLLM-Hungarian:latest" --formality informal
-
-# Increase timeout for large models
-python main.py input.srt --timeout 300 --verbose
+# Use pattern matching for files
+python main.py "subtitles\show*s01e01*.srt"
 ```
 
-### Batch Processing
+### Translation Modes
+
+#### 1. **Multi-Model Mode** (Recommended - Best Quality)
+```bash
+# 4-stage AI pipeline for highest quality
+python main.py "subtitles\episode.srt" --mode multi-model
+
+# Run only translation step (5x faster)
+python main.py "subtitles\episode.srt" --mode multi-model --only-translation
+
+# Select specific steps
+python main.py input.srt --mode multi-model --steps context translation validation
+```
+
+#### 2. **Line-by-Line Mode** (Default - Reliable)
+```bash
+# Process entry by entry with resume capability
+python main.py "subtitles\episode.srt" --mode line-by-line
+
+# Resume from interruption
+python main.py "subtitles\episode.srt" --resume
+```
+
+#### 3. **Batch Mode** (Fast - 35% Performance Boost)
+```bash
+# Process multiple entries together
+python main.py "subtitles\episode.srt" --mode batch --batch-size 10
+
+# With overlap for better context
+python main.py input.srt --mode batch --batch-size 5 --overlap-size 2
+```
+
+#### 4. **Whole-File Mode** (Experimental)
+```bash
+# Process entire file at once (for small files)
+python main.py test_sample.srt --mode whole-file
+```
+
+### Real-World Examples
+
+#### Single Episode Translation
+```bash
+# Translate a TV show episode with highest quality
+python main.py "subtitles\show_s01e01.srt" --mode multi-model --verbose
+
+# Output: show_s01e01.hu.srt (same directory)
+```
+
+#### Batch Processing Multiple Episodes
+```bash
+# Translate all episodes in a season
+python main.py "subtitles\season01\*.srt" --batch --mode multi-model
+
+# Process first 5 episodes only
+python main.py "subtitles\season01\*s01e0[1-5]*.srt" --batch --mode multi-model
+```
+
+#### Advanced Options
+```bash
+# High-quality translation with specific model
+python main.py "subtitles\episode.srt" \
+  --mode multi-model \
+  --model "gemma3:latest" \
+  --formality auto \
+  --verbose
+
+# Fast translation for preview
+python main.py "subtitles\episode.srt" \
+  --mode multi-model \
+  --only-translation \
+  --batch-size 20
+```
+
+### Resume and Progress Management
 
 ```bash
-# Translate all SRT files in a directory
-python main.py "subtitles/*.srt" --batch
+# Safe interruption with Ctrl+C - automatically resumes next time
+python main.py "subtitles\episode.srt" --mode multi-model
 
-# Process directory with output to specific folder
-python main.py subtitles/ --batch -o output/
+# Force restart (ignore existing progress)
+python main.py "subtitles\episode.srt" --restart
+
+# Explicitly resume from last position
+python main.py "subtitles\episode.srt" --resume
 ```
 
 ### Configuration
@@ -113,34 +186,68 @@ output:
 
 | Option | Description | Example |
 |--------|-------------|---------|
+| `--mode` | Translation mode | `--mode multi-model` |
+| `--only-translation` | Fast mode (translation step only) | `--only-translation` |
+| `--steps` | Select specific pipeline steps | `--steps context translation` |
+| `--batch-size` | Entries per batch | `--batch-size 10` |
+| `--overlap-size` | Context overlap between batches | `--overlap-size 2` |
+| `--resume` | Resume from interruption | `--resume` |
+| `--restart` | Force restart ignoring progress | `--restart` |
 | `--config`, `-c` | Configuration file | `--config my-config.yaml` |
-| `--model` | Ollama model name | `--model llama3.2` |
+| `--model` | Ollama model name | `--model gemma3:latest` |
 | `--source` | Source language | `--source en` |
 | `--target` | Target language | `--target hu` |
-| `--formality` | Translation style | `--formality informal` |
-| `--timeout` | Request timeout (seconds) | `--timeout 300` |
+| `--formality` | Translation style | `--formality auto` |
 | `--verbose`, `-v` | Detailed output | `--verbose` |
-| `--batch` | Batch processing mode | `--batch` |
 | `--validate` | Validate setup only | `--validate` |
+
+### Translation Modes Comparison
+
+| Mode | Speed | Quality | Resume | Best For |
+|------|-------|---------|--------|----------|
+| `multi-model` | Slow | ⭐⭐⭐⭐⭐ | ✅ | Production, highest quality |
+| `multi-model --only-translation` | Fast | ⭐⭐⭐⭐ | ✅ | Good quality, faster processing |
+| `line-by-line` | Medium | ⭐⭐⭐ | ✅ | Reliable, interruptible |
+| `batch` | Fast | ⭐⭐⭐ | ✅ | Good balance of speed/quality |
+| `whole-file` | Very Fast | ⭐⭐ | ❌ | Small files, quick preview |
 
 ## 📁 Output Structure
 
 ### Single File Translation
 ```
-input.srt → input.hu.srt  (same directory)
+# Input
+subtitles\show_s01e01.eng.srt
+
+# Output (same directory with .hu suffix)
+subtitles\show_s01e01.eng.hu.srt
+```
+
+### Custom Output Location
+```bash
+python main.py "subtitles\episode.srt" -o "output\episode_hungarian.srt"
 ```
 
 ### Batch Translation
 ```
-subtitles/
-  ├── episode1.srt
-  ├── episode2.srt
-  └── episode3.srt
+subtitles\season01\
+  ├── show_s01e01.eng.srt
+  ├── show_s01e02.eng.srt
+  └── show_s01e03.eng.srt
 
-output/
-  ├── episode1.hu.srt
-  ├── episode2.hu.srt
-  └── episode3.hu.srt
+# After translation
+subtitles\season01\
+  ├── show_s01e01.eng.srt
+  ├── show_s01e01.eng.hu.srt    ← New
+  ├── show_s01e02.eng.srt
+  ├── show_s01e02.eng.hu.srt    ← New
+  ├── show_s01e03.eng.srt
+  └── show_s01e03.eng.hu.srt    ← New
+```
+
+### Multi-Model Output (Advanced)
+```
+# Besides the .hu.srt file, multi-model mode creates detailed JSON results:
+show_s01e01.eng_results.json    ← AI pipeline details
 ```
 
 ## 🏗️ Project Structure
@@ -178,16 +285,39 @@ python main.py --validate
 # Quick test with small sample
 python main.py test_sample.srt --verbose
 
-# Test with real Magnum P.I. dialogue
-python main.py magnum_sample.srt --model "jobautomation/OpenEuroLLM-Hungarian:latest" --formality auto
+# Test multi-model pipeline
+python main.py test_sample.srt --mode multi-model --verbose
+
+# Test with a real episode (first few entries)
+python main.py "subtitles\episode.srt" --mode multi-model --batch-size 5
+```
+
+### Performance Testing
+```bash
+# Compare translation modes
+python main.py test_sample.srt --mode line-by-line --verbose
+python main.py test_sample.srt --mode batch --verbose  
+python main.py test_sample.srt --mode multi-model --only-translation --verbose
 ```
 
 ## ⚡ Performance
 
-- **Translation Speed**: ~13-18 seconds per subtitle entry (depends on model)
+- **Multi-Model Mode**: ~45-60 seconds per entry (4-stage AI pipeline)
+- **Multi-Model Translation-Only**: ~12-15 seconds per entry (5x faster)
+- **Batch Mode**: ~10-13 seconds per entry (35% faster than line-by-line)
+- **Line-by-Line**: ~13-18 seconds per entry (reliable baseline)
 - **Context Awareness**: Uses surrounding subtitles for better translation
-- **Memory Efficient**: Processes entries sequentially
+- **Memory Efficient**: Processes entries sequentially with resume capability
 - **Error Recovery**: Automatic retry and fallback to alternative models
+
+### Real-World Performance Examples
+```bash
+# Typical TV episode (~400 entries)
+Multi-Model (full):     ~6.5 hours  (highest quality)
+Multi-Model (fast):     ~1.5 hours  (excellent quality)
+Batch Mode:             ~1.2 hours  (good quality)
+Line-by-Line:           ~1.8 hours  (reliable)
+```
 
 ## 🎨 Translation Quality
 
