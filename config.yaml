@@ -165,8 +165,8 @@ multi_model:
     
     # Batch processing settings (NEW - much faster!)
     batch_translation: true   # Translate multiple entries together (RECOMMENDED)
-    batch_size: 20           # Number of entries to translate in one batch
-    max_batch_size: 30       # Maximum batch size for very large files
+    batch_size: 10           # Number of entries to translate in one batch
+    max_batch_size: 15       # Maximum batch size for very large files
 
 # Output settings
 output:
