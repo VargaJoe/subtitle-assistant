@@ -388,21 +388,24 @@ class MultiModelOrchestrator:
             batch_text = "\n".join(batch_lines)
             
             # Create batch translation prompt
-            prompt = f"""Translate these English subtitle lines to Hungarian. Keep the same format with [number] markers and translate each line separately.
+            prompt = f"""You are a translator. Translate ONLY the subtitle lines below from English to Hungarian. 
 
-Subtitle lines to translate:
+IMPORTANT: Do NOT translate these instructions - only translate the subtitle text after the [number] markers.
+
+English subtitle lines to translate:
 {batch_text}
 
-Return ONLY the translations in the same format:
-[1] Hungarian translation here
-[2] Another Hungarian translation
+Respond with ONLY the Hungarian translations in this exact format:
+[1] Hungarian translation of line 1
+[2] Hungarian translation of line 2
+[3] Hungarian translation of line 3
 etc.
 
-Make sure:
-- Keep all [number] markers exactly as they are
-- Translate each line individually 
-- Use natural, conversational Hungarian
-- Maintain the same number of lines"""
+Rules:
+- Keep all [number] markers exactly the same
+- Translate each subtitle line to natural Hungarian
+- Do NOT translate these instructions
+- Return ONLY the translated lines with [number] markers"""
 
             try:
                 # Get batch translation
@@ -487,9 +490,15 @@ Make sure:
         translations = []
         index_to_translation = {}
         
-        # Parse response lines
-        for line in lines:
+        self.logger.debug(f"Parsing batch response with {len(lines)} lines for {len(original_batch)} entries")
+        
+        # Parse response lines - be more flexible with format
+        for line_num, line in enumerate(lines):
             line = line.strip()
+            if not line:
+                continue
+                
+            # Look for [number] pattern at start of line
             if line.startswith('[') and ']' in line:
                 try:
                     bracket_end = line.find(']')
@@ -499,17 +508,34 @@ Make sure:
                     
                     if translation:
                         index_to_translation[index] = translation
-                except (ValueError, IndexError):
+                        self.logger.debug(f"Extracted translation for entry {index}: {translation[:50]}...")
+                except (ValueError, IndexError) as e:
+                    self.logger.debug(f"Could not parse line {line_num}: '{line}' - {e}")
                     continue
-        
-        # Match translations to original entries
-        for entry in original_batch:
-            if entry.index in index_to_translation:
-                translations.append(index_to_translation[entry.index])
             else:
-                self.logger.warning(f"⚠️  No translation found for entry {entry.index}, using original")
-                translations.append(entry.text)
+                # If line doesn't start with [number], it might be part of previous translation or instructions
+                self.logger.debug(f"Skipping line {line_num} (no [number] format): '{line[:50]}...'")
         
+        # Match translations to original entries in order
+        for i, entry in enumerate(original_batch):
+            if entry.index in index_to_translation:
+                translation = index_to_translation[entry.index]
+                translations.append(translation)
+                self.logger.debug(f"✅ Found translation for entry {entry.index}")
+            else:
+                # Try to find by position if index matching fails
+                position_based_index = i + 1  # 1-based indexing
+                if position_based_index in index_to_translation:
+                    translation = index_to_translation[position_based_index]
+                    translations.append(translation)
+                    self.logger.warning(f"⚠️  Used position-based matching for entry {entry.index} (position {position_based_index})")
+                else:
+                    self.logger.warning(f"⚠️  No translation found for entry {entry.index}, using original: '{entry.text}'")
+                    translations.append(entry.text)
+        
+        translated_count = sum(1 for i, t in enumerate(translations) if i < len(original_batch) and t != original_batch[i].text)
+        fallback_count = len(translations) - translated_count
+        self.logger.debug(f"Batch parsing complete: {translated_count} translated, {fallback_count} fallback")
         return translations
     
     def _create_context_analysis_prompt(self, story_text: str) -> str:
