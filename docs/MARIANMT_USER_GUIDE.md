@@ -85,25 +85,25 @@ marian:
 
 ### Process Individual Episodes
 ```powershell
-# Blue Bloods Season 14
-python main.py "./subtitles/Blue Bloods s14/Blue Bloods - 14x01.srt" --backend marian --verbose
-python main.py "./subtitles/Blue Bloods s14/Blue Bloods - 14x02.srt" --backend marian --verbose
+# Single file processing
+python main.py "./subtitles/season01/episode_01.srt" --backend marian --verbose
+python main.py "./subtitles/season01/episode_02.srt" --backend marian --verbose
 
-# Magnum P.I. Season 2
-python main.py "./subtitles/Magnum P.I. s02/Magnum P.I. - 02x01.srt" --backend marian --verbose
-python main.py "./subtitles/Magnum P.I. s02/Magnum P.I. - 02x02.srt" --backend marian --verbose
+# Different series structure
+python main.py "./subtitles/series_a/s01e01.srt" --backend marian --verbose
+python main.py "./subtitles/series_a/s01e02.srt" --backend marian --verbose
 ```
 
 ### Batch Processing Entire Seasons
 ```powershell
-# Process Blue Bloods S14 (22 episodes)
-Get-ChildItem ".\subtitles\Blue Bloods s14\*.srt" | ForEach-Object {
+# Process entire season directory
+Get-ChildItem ".\subtitles\season01\*.srt" | ForEach-Object {
     Write-Host "Processing: $($_.Name)"
     python main.py $_.FullName --backend marian --verbose
 }
 
-# Process Magnum P.I. S02 (15 episodes) 
-Get-ChildItem ".\subtitles\Magnum P.I. s02\*.srt" | ForEach-Object {
+# Process multiple series
+Get-ChildItem ".\subtitles\series_a\*.srt" | ForEach-Object {
     Write-Host "Processing: $($_.Name)"
     python main.py $_.FullName --backend marian --verbose
 }
@@ -183,23 +183,23 @@ marian:
 ### Input Files
 ```
 subtitles/
-  ├── Blue Bloods s14/
-  │   ├── Blue Bloods - 14x01.srt
-  │   └── Blue Bloods - 14x02.srt
-  └── Magnum P.I. s02/
-      ├── Magnum P.I. - 02x01.srt
-      └── Magnum P.I. - 02x02.srt
+  ├── season01/
+  │   ├── episode_01.srt
+  │   └── episode_02.srt
+  └── series_a/
+      ├── s01e01.srt
+      └── s01e02.srt
 ```
 
 ### Output Files
 ```
 subtitles/
-  ├── Blue Bloods s14/
-  │   ├── Blue Bloods - 14x01.hu.srt          # Translated
-  │   └── Blue Bloods - 14x01.hu.progress     # Progress file
-  └── Magnum P.I. s02/
-      ├── Magnum P.I. - 02x01.hu.srt         # Translated
-      └── Magnum P.I. - 02x01.hu.progress    # Progress file
+  ├── season01/
+  │   ├── episode_01.hu.srt          # Translated
+  │   └── episode_01.hu.progress     # Progress file
+  └── series_a/
+      ├── s01e01.hu.srt             # Translated
+      └── s01e01.hu.progress        # Progress file
 ```
 
 ## Advanced Usage
