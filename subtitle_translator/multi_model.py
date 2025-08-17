@@ -143,10 +143,20 @@ class MultiModelOrchestrator:
             self.logger.warning("Multi-model architecture disabled, falling back to single model")
             # TODO: Fallback to single model translation
             return entries
+
+        # Check if we can use fast batch processing (only translation step)
+        only_translation = (
+            self.multi_config.pipeline.run_translation and
+            not self.multi_config.pipeline.run_context_analysis and
+            not self.multi_config.pipeline.run_validation and
+            not self.multi_config.pipeline.run_dialogue_refinement
+        )
         
-        self.logger.info("🚀 Starting multi-model translation pipeline...")
-        
-        # Create results directory for intermediate files
+        if only_translation and len(entries) > 5:
+            self.logger.info("🚀 Using FAST BATCH translation mode - Much faster!")
+            return self._translate_entries_batch_fast(entries, progress)
+
+        self.logger.info("🚀 Starting multi-model translation pipeline...")        # Create results directory for intermediate files
         results_dir = Path("output/multi_model_results")
         results_dir.mkdir(parents=True, exist_ok=True)
         
@@ -327,6 +337,180 @@ class MultiModelOrchestrator:
         
         self.logger.info(f"📋 Preparing story context from first {len(lines)} entries")
         return "\n".join(lines)
+    
+    def _translate_entries_batch_fast(self, entries: List[SubtitleEntry], progress: TranslationProgress) -> List[SubtitleEntry]:
+        """
+        Fast batch translation for --only-translation mode.
+        Processes 20-30 entries at once for much faster translation.
+        """
+        # Get batch size from config
+        batch_size = getattr(self.multi_config.pipeline, 'batch_size', 20)
+        
+        # Create results directory and file
+        results_dir = Path("output/multi_model_results")
+        results_dir.mkdir(parents=True, exist_ok=True)
+        input_filename = progress.input_file.stem
+        result_file = results_dir / f"{input_filename}_results.json"
+        
+        # Initialize result structure
+        srt_results = {
+            "file_info": {
+                "input_file": str(progress.input_file),
+                "output_file": str(progress.output_file),
+                "total_entries": len(entries),
+                "processing_start": self._get_timestamp(),
+                "mode": "batch_fast"
+            },
+            "entries": {}
+        }
+        
+        # Get basic context (no detailed analysis needed for fast mode)
+        context = StoryContext(
+            characters={},
+            formality_patterns={},
+            technical_terms=[],
+            emotional_arcs={},
+            story_summary="Fast batch translation mode"
+        )
+        
+        # Process entries in batches
+        translated_entries = []
+        batches = [entries[i:i + batch_size] for i in range(0, len(entries), batch_size)]
+        
+        for batch_num, batch in enumerate(batches, 1):
+            self.logger.info(f"🔄 Processing batch {batch_num}/{len(batches)}: {len(batch)} entries")
+            
+            # Prepare batch text with entry markers
+            batch_lines = []
+            for entry in batch:
+                batch_lines.append(f"[{entry.index}] {entry.text}")
+            
+            batch_text = "\n".join(batch_lines)
+            
+            # Create batch translation prompt
+            prompt = f"""Translate these English subtitle lines to Hungarian. Keep the same format with [number] markers and translate each line separately.
+
+Subtitle lines to translate:
+{batch_text}
+
+Return ONLY the translations in the same format:
+[1] Hungarian translation here
+[2] Another Hungarian translation
+etc.
+
+Make sure:
+- Keep all [number] markers exactly as they are
+- Translate each line individually 
+- Use natural, conversational Hungarian
+- Maintain the same number of lines"""
+
+            try:
+                # Get batch translation
+                response = self.translation_client.translate_with_retry(prompt, "")
+                
+                # Parse batch response
+                translations = self._parse_batch_response(response, batch)
+                
+                # Create translated entries and update results
+                for entry, translation in zip(batch, translations):
+                    translated_entry = SubtitleEntry(
+                        index=entry.index,
+                        start_time=entry.start_time,
+                        end_time=entry.end_time,
+                        text=translation,
+                        original_text=entry.text
+                    )
+                    translated_entries.append(translated_entry)
+                    progress.add_translated_entry(translated_entry)
+                    
+                    # Add to results
+                    entry_key = f"entry_{entry.index:04d}"
+                    srt_results["entries"][entry_key] = {
+                        "index": entry.index,
+                        "original_text": entry.text,
+                        "start_time": str(entry.start_time),
+                        "end_time": str(entry.end_time),
+                        "step2_translation": {
+                            "text": translation,
+                            "confidence": 0.9,
+                            "method": "batch_fast",
+                            "batch_number": batch_num
+                        },
+                        "final_result": {
+                            "text": translation,
+                            "confidence": 0.9
+                        }
+                    }
+                    
+            except Exception as e:
+                self.logger.error(f"❌ Batch {batch_num} failed: {e}")
+                # Fallback to individual processing for this batch
+                for entry in batch:
+                    try:
+                        prompt = f"Translate to Hungarian: {entry.text}"
+                        response = self.translation_client.translate_with_retry(prompt, "")
+                        translated_entry = SubtitleEntry(
+                            index=entry.index,
+                            start_time=entry.start_time,
+                            end_time=entry.end_time,
+                            text=response.strip(),
+                            original_text=entry.text
+                        )
+                        translated_entries.append(translated_entry)
+                        progress.add_translated_entry(translated_entry)
+                    except Exception as individual_error:
+                        self.logger.error(f"❌ Entry {entry.index} failed: {individual_error}")
+                        # Use original as fallback
+                        fallback_entry = SubtitleEntry(
+                            index=entry.index,
+                            start_time=entry.start_time,
+                            end_time=entry.end_time,
+                            text=entry.text,
+                            original_text=entry.text
+                        )
+                        translated_entries.append(fallback_entry)
+                        progress.add_translated_entry(fallback_entry)
+        
+        # Save final results
+        srt_results["file_info"]["processing_end"] = self._get_timestamp()
+        srt_results["file_info"]["processing_complete"] = True
+        self._save_step_result(result_file, srt_results)
+        
+        self.logger.info(f"💾 Batch results saved to: {result_file}")
+        self.logger.info("⚡ Fast batch translation completed!")
+        
+        return translated_entries
+    
+    def _parse_batch_response(self, response: str, original_batch: List[SubtitleEntry]) -> List[str]:
+        """Parse batch translation response back to individual translations."""
+        lines = response.strip().split('\n')
+        translations = []
+        index_to_translation = {}
+        
+        # Parse response lines
+        for line in lines:
+            line = line.strip()
+            if line.startswith('[') and ']' in line:
+                try:
+                    bracket_end = line.find(']')
+                    index_str = line[1:bracket_end]
+                    index = int(index_str)
+                    translation = line[bracket_end + 1:].strip()
+                    
+                    if translation:
+                        index_to_translation[index] = translation
+                except (ValueError, IndexError):
+                    continue
+        
+        # Match translations to original entries
+        for entry in original_batch:
+            if entry.index in index_to_translation:
+                translations.append(index_to_translation[entry.index])
+            else:
+                self.logger.warning(f"⚠️  No translation found for entry {entry.index}, using original")
+                translations.append(entry.text)
+        
+        return translations
     
     def _create_context_analysis_prompt(self, story_text: str) -> str:
         """Create prompt for story context analysis."""

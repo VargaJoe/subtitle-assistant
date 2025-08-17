@@ -162,6 +162,11 @@ multi_model:
     skip_validation_for_high_confidence: false  # Force validation to always run for testing
     skip_dialogue_refinement: false  # Set to true to skip dialogue specialist for speed
     batch_validation: true  # Validate multiple entries at once for efficiency
+    
+    # Batch processing settings (NEW - much faster!)
+    batch_translation: true   # Translate multiple entries together (RECOMMENDED)
+    batch_size: 20           # Number of entries to translate in one batch
+    max_batch_size: 30       # Maximum batch size for very large files
 
 # Output settings
 output:
