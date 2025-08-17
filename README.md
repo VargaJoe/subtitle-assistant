@@ -86,6 +86,40 @@ python main.py "subtitles\episode.srt" --mode multi-model --only-translation
 python main.py input.srt --mode multi-model --steps context translation validation
 ```
 
+##### **Multi-Model Step Configuration**
+
+The multi-model architecture consists of 4 specialized phases:
+
+| Step | CLI Name | Description | Purpose |
+|------|----------|-------------|---------|
+| **Phase 1** | `context` | Story Analysis | Character identification, formality detection |
+| **Phase 2** | `translation` | Primary Translation | Context-aware Hungarian translation |
+| **Phase 3** | `validation` | Quality Validation | Grammar checking, naturalness scoring |
+| **Phase 4** | `dialogue` | Dialogue Refinement | Character voice consistency |
+
+**Step Selection Examples:**
+```bash
+# Run only context analysis
+python main.py episode.srt --mode multi-model --steps context
+
+# Run context + translation (good balance)
+python main.py episode.srt --mode multi-model --steps context translation
+
+# Run translation + validation (production quality)
+python main.py episode.srt --mode multi-model --steps translation validation
+
+# Run all steps (maximum quality)
+python main.py episode.srt --mode multi-model
+
+# Fast translation only
+python main.py episode.srt --mode multi-model --only-translation
+```
+
+**Performance vs Quality:**
+- `--only-translation`: ⚡⚡⚡⚡⚡ Speed, ⭐⭐⭐ Quality
+- `--steps translation validation`: ⚡⚡⚡⚡ Speed, ⭐⭐⭐⭐ Quality  
+- All 4 steps: ⚡⚡ Speed, ⭐⭐⭐⭐⭐ Quality
+
 #### 2. **Line-by-Line Mode** (Default - Reliable)
 ```bash
 # Process entry by entry with resume capability
@@ -180,6 +214,73 @@ ollama:
 output:
   suffix: "{target_lang}"
   encoding: utf-8
+```
+
+#### **Multi-Model Configuration**
+
+Configure default steps and behavior in `config.yaml`:
+
+```yaml
+multi_model:
+  enabled: true
+  
+  # Default step selection
+  pipeline:
+    run_context_analysis: true     # Step 1: Story understanding
+    run_translation: true          # Step 2: Primary translation  
+    run_validation: true           # Step 3: Quality validation
+    run_dialogue_refinement: true  # Step 4: Dialogue polishing
+    
+    # Performance settings
+    parallel_processing: false     # Sequential processing
+    quality_consensus: true        # Require consensus
+    fallback_to_single: true       # Fallback if multi-model fails
+
+  # Customize each phase
+  context_model:
+    model: "gemma3n:latest"
+    temperature: 0.2
+    analyze_full_story: true
+    
+  translation_model:
+    model: "gemma3n:latest"  
+    temperature: 0.3
+    use_context_analysis: true
+    
+  technical_validator:
+    model: "gemma3n:latest"
+    temperature: 0.1
+    quality_threshold: 0.7
+    
+  dialogue_specialist:
+    model: "gemma3n:latest"
+    temperature: 0.25
+    voice_consistency: true
+```
+
+**Common Configuration Presets:**
+
+```yaml
+# Fast Mode (Translation Only)
+pipeline:
+  run_context_analysis: false
+  run_translation: true
+  run_validation: false
+  run_dialogue_refinement: false
+
+# Balanced Mode (Translation + Validation)  
+pipeline:
+  run_context_analysis: false
+  run_translation: true
+  run_validation: true
+  run_dialogue_refinement: false
+
+# Maximum Quality (All Steps)
+pipeline:
+  run_context_analysis: true
+  run_translation: true
+  run_validation: true
+  run_dialogue_refinement: true
 ```
 
 ### Command Line Options
