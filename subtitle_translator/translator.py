@@ -106,7 +106,7 @@ class SubtitleTranslator:
                 self.logger.info(f"Resuming translation: {remaining} entries remaining")
             
             # Translate entries based on mode
-            if self.config.translation_mode == "multi-model" or self.multi_model_orchestrator.is_enabled():
+            if self.config.translation_mode == "multi-model":
                 # Use multi-model pipeline for the whole file
                 progress.translated_entries = self.multi_model_orchestrator.translate_with_multimodel(entries, progress)
                 progress.current_index = len(progress.translated_entries)
