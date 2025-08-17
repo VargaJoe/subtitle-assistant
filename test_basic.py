@@ -20,7 +20,7 @@ def test_srt_parsing():
     print("Testing SRT parsing...")
     
     parser = SRTParser()
-    srt_file = project_root / "subtitles" / "Magnum.P.I.S02.REMASTERED.BDRip.x264-DEUTERiUM" / "Magnum.P.I.S02E01.srt"
+    srt_file = project_root / "subtitles" / "Magnum P.I. s02" / "Magnum.P.I.S02E01.srt"
     
     try:
         entries = parser.parse_file(srt_file)
