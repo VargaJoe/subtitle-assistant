@@ -26,7 +26,13 @@ This project aims to bridge communication gaps for hearing-impaired users by pro
 - **Accessibility Features** - Sound effects, music descriptions, speaker identification
 - **Audio Processing** - Auto-subtitle generation from video/audio files
 
-## 🛠️ Technology Stack
+## � Documentation
+
+- **[Traditional Translation Guide](docs/traditional-translation-guide.md)** - Complete guide for simple, fast translation modes
+- **[Multi-Model Architecture Guide](docs/multi-model-guide.md)** - Advanced 4-phase pipeline documentation  
+- **[Implementation Tasks](docs/implementation-tasks.md)** - Development progress tracking
+
+## �🛠️ Technology Stack
 
 - **Python 3.8+** - Core language
 - **Ollama** - Local AI translation engine
@@ -74,12 +80,23 @@ python main.py "subtitles\show*s01e01*.srt"
 
 ### Translation Modes
 
+The subtitle assistant has two architectures:
+
+**🔸 Traditional Modes** - **Phase 2 Only** (Translation)
+- Simple, fast, reliable
+- Only performs translation step
+- Best for quick processing
+
+**🔸 Multi-Model Mode** - **4-Phase AI Pipeline** 
+- Context analysis + Translation + Validation + Dialogue refinement
+- Highest quality, more comprehensive processing
+
 #### 1. **Multi-Model Mode** (Recommended - Best Quality)
 ```bash
 # 4-stage AI pipeline for highest quality
 python main.py "subtitles\episode.srt" --mode multi-model
 
-# Run only translation step (5x faster)
+# Run only translation step (5x faster, same as traditional modes)
 python main.py "subtitles\episode.srt" --mode multi-model --only-translation
 
 # Select specific steps
@@ -120,27 +137,27 @@ python main.py episode.srt --mode multi-model --only-translation
 - `--steps translation validation`: ⚡⚡⚡⚡ Speed, ⭐⭐⭐⭐ Quality  
 - All 4 steps: ⚡⚡ Speed, ⭐⭐⭐⭐⭐ Quality
 
-#### 2. **Line-by-Line Mode** (Default - Reliable)
+#### 2. **Line-by-Line Mode** (Traditional - Phase 2 Only)
 ```bash
-# Process entry by entry with resume capability
+# Process entry by entry with resume capability (translation only)
 python main.py "subtitles\episode.srt" --mode line-by-line
 
 # Resume from interruption
 python main.py "subtitles\episode.srt" --resume
 ```
 
-#### 3. **Batch Mode** (Fast - 35% Performance Boost)
+#### 3. **Batch Mode** (Traditional - Phase 2 Only, Fast)
 ```bash
-# Process multiple entries together
+# Process multiple entries together (translation only)
 python main.py "subtitles\episode.srt" --mode batch --batch-size 10
 
 # With overlap for better context
 python main.py input.srt --mode batch --batch-size 5 --overlap-size 2
 ```
 
-#### 4. **Whole-File Mode** (Experimental)
+#### 4. **Whole-File Mode** (Traditional - Phase 2 Only, Experimental)
 ```bash
-# Process entire file at once (for small files)
+# Process entire file at once (translation only, for small files)
 python main.py test_sample.srt --mode whole-file
 ```
 
@@ -304,13 +321,13 @@ pipeline:
 
 ### Translation Modes Comparison
 
-| Mode | Speed | Quality | Resume | Best For |
-|------|-------|---------|--------|----------|
-| `multi-model` | Slow | ⭐⭐⭐⭐⭐ | ✅ | Production, highest quality |
-| `multi-model --only-translation` | Fast | ⭐⭐⭐⭐ | ✅ | Good quality, faster processing |
-| `line-by-line` | Medium | ⭐⭐⭐ | ✅ | Reliable, interruptible |
-| `batch` | Fast | ⭐⭐⭐ | ✅ | Good balance of speed/quality |
-| `whole-file` | Very Fast | ⭐⭐ | ❌ | Small files, quick preview |
+| Mode | Architecture | Phases | Speed | Quality | Resume | Best For |
+|------|-------------|--------|-------|---------|--------|----------|
+| `multi-model` | 4-Phase Pipeline | Context + Translation + Validation + Dialogue | Slow | ⭐⭐⭐⭐⭐ | ✅ | Production, highest quality |
+| `multi-model --only-translation` | Single Phase | Translation Only | Fast | ⭐⭐⭐⭐ | ✅ | Good quality, faster processing |
+| `line-by-line` | Traditional | Translation Only | Medium | ⭐⭐⭐ | ✅ | Reliable, interruptible |
+| `batch` | Traditional | Translation Only | Fast | ⭐⭐⭐ | ✅ | Good balance of speed/quality |
+| `whole-file` | Traditional | Translation Only | Very Fast | ⭐⭐ | ❌ | Small files, quick preview |
 
 ## 📁 Output Structure
 
