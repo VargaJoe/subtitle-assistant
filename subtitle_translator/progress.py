@@ -47,9 +47,13 @@ class TranslationProgress:
         return self.output_file.parent / progress_name
     
     def _parse_timedelta(self, time_str: str):
-        """Parse timedelta from string format (H:MM:SS.mmm)."""
-        # Handle format like "0:00:12.345"
+        """Parse timedelta from string format (H:MM:SS.mmm or HH:MM:SS,mmm)."""
+        # Handle both dot and comma format for milliseconds
         try:
+            # Convert SRT format (HH:MM:SS,mmm) to standard format (H:MM:SS.mmm)
+            if ',' in time_str:
+                time_str = time_str.replace(',', '.')
+            
             parts = time_str.split(':')
             hours = int(parts[0])
             minutes = int(parts[1])
