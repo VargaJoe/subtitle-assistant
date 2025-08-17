@@ -330,6 +330,13 @@ class MultiModelOrchestrator:
     
     def _create_context_analysis_prompt(self, story_text: str) -> str:
         """Create prompt for story context analysis."""
+        # Use custom prompt template if available, otherwise use default
+        if self.multi_config.context_model.prompt_template.strip():
+            return self.multi_config.context_model.prompt_template.format(
+                story_text=story_text
+            )
+        
+        # Default prompt template
         return f"""Analyze this subtitle text and provide a structured analysis:
 
 SUBTITLE TEXT:
@@ -358,8 +365,19 @@ Respond in a structured format that can be parsed."""
     
     def _translate_with_context(self, entry: SubtitleEntry, context: StoryContext) -> TranslationResult:
         """Translate using the Translation Model with story context."""
-        # Build a context-aware prompt for the translation model
-        prompt = f"""
+        # Use custom prompt template if available
+        if self.multi_config.translation_model.prompt_template.strip():
+            prompt = self.multi_config.translation_model.prompt_template.format(
+                entry_text=entry.text,
+                characters=', '.join(context.characters.keys()) if context.characters else 'N/A',
+                formality_patterns=context.formality_patterns,
+                technical_terms=', '.join(context.technical_terms) if context.technical_terms else 'N/A',
+                emotional_arcs=context.emotional_arcs,
+                story_summary=context.story_summary
+            )
+        else:
+            # Default prompt template
+            prompt = f"""
 Translate the following subtitle into Hungarian, considering the context below.
 
 SUBTITLE:
@@ -402,7 +420,15 @@ Requirements:
     
     def _validate_translation(self, original: SubtitleEntry, translation: TranslationResult) -> TranslationResult:
         """Validate translation using the Technical Validator."""
-        prompt = f"""
+        # Use custom prompt template if available
+        if self.multi_config.technical_validator.prompt_template.strip():
+            prompt = self.multi_config.technical_validator.prompt_template.format(
+                original_text=original.text,
+                translated_text=translation.text
+            )
+        else:
+            # Default prompt template
+            prompt = f"""
 Evaluate the following Hungarian subtitle translation for grammar, naturalness, and accuracy. Provide a confidence score (0-1), and suggest improvements if needed.
 
 ORIGINAL ENGLISH:
@@ -449,7 +475,17 @@ Requirements:
     
     def _refine_dialogue(self, original: SubtitleEntry, translation: TranslationResult, context: StoryContext) -> TranslationResult:
         """Refine dialogue using the Dialogue Specialist."""
-        prompt = f"""
+        # Use custom prompt template if available
+        if self.multi_config.dialogue_specialist.prompt_template.strip():
+            prompt = self.multi_config.dialogue_specialist.prompt_template.format(
+                translated_text=translation.text,
+                characters=', '.join(context.characters.keys()) if context.characters else 'N/A',
+                emotional_arcs=context.emotional_arcs,
+                story_summary=context.story_summary
+            )
+        else:
+            # Default prompt template
+            prompt = f"""
 Polish the following Hungarian subtitle for natural conversational flow and character voice, considering the context below. Only output the improved Hungarian subtitle, or the original if no improvement is needed.
 
 SUBTITLE:

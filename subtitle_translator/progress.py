@@ -42,7 +42,8 @@ class TranslationProgress:
     def _get_progress_file_path(self) -> Path:
         """Generate progress file path based on input/output files."""
         # Create progress file in same directory as output
-        progress_name = f"{self.input_file.stem}.{self.output_file.stem}.progress"
+        # Use output file name with .progress extension instead of combining input+output
+        progress_name = f"{self.output_file.stem}.progress"
         return self.output_file.parent / progress_name
     
     def _parse_timedelta(self, time_str: str):

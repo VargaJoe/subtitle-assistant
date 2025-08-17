@@ -39,6 +39,7 @@ class ContextModelSettings(ModelSettings):
     character_profiling: bool = True
     formality_detection: bool = True
     context_window: int = 15  # Number of entries to analyze for context
+    prompt_template: str = ""  # Custom prompt template for context analysis
     
 
 @dataclass
@@ -47,6 +48,7 @@ class TranslationModelSettings(ModelSettings):
     temperature: float = 0.3
     use_context_analysis: bool = True
     cultural_adaptation: bool = True
+    prompt_template: str = ""  # Custom prompt template for translation
     
 
 @dataclass
@@ -56,6 +58,7 @@ class TechnicalValidatorSettings(ModelSettings):
     grammar_check: bool = True
     naturalness_score: bool = True
     quality_threshold: float = 0.7
+    prompt_template: str = ""  # Custom prompt template for validation
     
 
 @dataclass
@@ -65,6 +68,7 @@ class DialogueSpecialistSettings(ModelSettings):
     voice_consistency: bool = True
     emotional_tone: bool = True
     formality_adjustment: bool = True
+    prompt_template: str = ""  # Custom prompt template for dialogue refinement
     
 
 @dataclass
@@ -207,27 +211,31 @@ class Config:
                 temperature=multi_model_data.get('context_model', {}).get('temperature', 0.2),
                 analyze_full_story=multi_model_data.get('context_model', {}).get('analyze_full_story', True),
                 character_profiling=multi_model_data.get('context_model', {}).get('character_profiling', True),
-                formality_detection=multi_model_data.get('context_model', {}).get('formality_detection', True)
+                formality_detection=multi_model_data.get('context_model', {}).get('formality_detection', True),
+                prompt_template=multi_model_data.get('context_model', {}).get('prompt_template', '')
             ),
             translation_model=TranslationModelSettings(
                 model=multi_model_data.get('translation_model', {}).get('model', 'gemma3:latest'),
                 temperature=multi_model_data.get('translation_model', {}).get('temperature', 0.3),
                 use_context_analysis=multi_model_data.get('translation_model', {}).get('use_context_analysis', True),
-                cultural_adaptation=multi_model_data.get('translation_model', {}).get('cultural_adaptation', True)
+                cultural_adaptation=multi_model_data.get('translation_model', {}).get('cultural_adaptation', True),
+                prompt_template=multi_model_data.get('translation_model', {}).get('prompt_template', '')
             ),
             technical_validator=TechnicalValidatorSettings(
                 model=multi_model_data.get('technical_validator', {}).get('model', 'gemma3:12b'),
                 temperature=multi_model_data.get('technical_validator', {}).get('temperature', 0.1),
                 grammar_check=multi_model_data.get('technical_validator', {}).get('grammar_check', True),
                 naturalness_score=multi_model_data.get('technical_validator', {}).get('naturalness_score', True),
-                quality_threshold=multi_model_data.get('technical_validator', {}).get('quality_threshold', 0.7)
+                quality_threshold=multi_model_data.get('technical_validator', {}).get('quality_threshold', 0.7),
+                prompt_template=multi_model_data.get('technical_validator', {}).get('prompt_template', '')
             ),
             dialogue_specialist=DialogueSpecialistSettings(
                 model=multi_model_data.get('dialogue_specialist', {}).get('model', 'llama3.2:latest'),
                 temperature=multi_model_data.get('dialogue_specialist', {}).get('temperature', 0.25),
                 voice_consistency=multi_model_data.get('dialogue_specialist', {}).get('voice_consistency', True),
                 emotional_tone=multi_model_data.get('dialogue_specialist', {}).get('emotional_tone', True),
-                formality_adjustment=multi_model_data.get('dialogue_specialist', {}).get('formality_adjustment', True)
+                formality_adjustment=multi_model_data.get('dialogue_specialist', {}).get('formality_adjustment', True),
+                prompt_template=multi_model_data.get('dialogue_specialist', {}).get('prompt_template', '')
             ),
             pipeline=MultiModelPipelineSettings(
                 parallel_processing=multi_model_data.get('pipeline', {}).get('parallel_processing', False),

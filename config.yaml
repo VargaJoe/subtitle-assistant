@@ -56,10 +56,26 @@ multi_model:
   context_model:
     model: "gemma3n:latest"  # Using gemma3n for all steps
     temperature: 0.2  # Lower temperature for consistent analysis
-    analyze_full_story: false  # Disable to test basic functionality first
+    analyze_full_story: true  # Enable context analysis for full story understanding
     character_profiling: true  # Extract character voice patterns
     formality_detection: true  # Detect formal/informal patterns
     context_window: 5  # Reduce to very small number for testing
+    
+    # Custom prompt template for context analysis
+    prompt_template: |
+      Analyze this subtitle text and provide a structured analysis:
+
+      SUBTITLE TEXT:
+      {story_text}
+
+      Please analyze and provide:
+      1. CHARACTER PROFILES: Identify main characters and their speaking patterns
+      2. FORMALITY PATTERNS: Detect formal/informal speech patterns
+      3. TECHNICAL TERMS: List important technical or specialized terms
+      4. EMOTIONAL ARCS: Identify emotional themes and progressions
+      5. STORY SUMMARY: Brief summary of the content
+
+      Respond in a structured format that can be parsed.
     
   # Translation Model - Primary translation with context
   translation_model:
@@ -67,6 +83,25 @@ multi_model:
     temperature: 0.3  # Balanced temperature for natural translation
     use_context_analysis: true  # Use context model output
     cultural_adaptation: true  # Apply cultural context adaptation
+    
+    # Custom prompt template for translation
+    prompt_template: |
+      Translate the following subtitle into Hungarian, considering the context below.
+
+      SUBTITLE:
+      {entry_text}
+
+      CONTEXT:
+      - Characters: {characters}
+      - Formality Patterns: {formality_patterns}
+      - Technical Terms: {technical_terms}
+      - Emotional Arcs: {emotional_arcs}
+      - Story Summary: {story_summary}
+
+      Requirements:
+      - Use appropriate formality and character voice.
+      - Preserve technical terms and emotional tone.
+      - Output only the translated Hungarian subtitle.
     
   # Technical Validator - Quality scoring and validation
   technical_validator:
@@ -76,6 +111,21 @@ multi_model:
     naturalness_score: true  # Score translation naturalness
     quality_threshold: 0.7  # Minimum quality score (0.0-1.0)
     
+    # Custom prompt template for validation
+    prompt_template: |
+      Evaluate the following Hungarian subtitle translation for grammar, naturalness, and accuracy. Provide a confidence score (0-1), and suggest improvements if needed.
+
+      ORIGINAL ENGLISH:
+      {original_text}
+
+      TRANSLATED HUNGARIAN:
+      {translated_text}
+
+      Requirements:
+      - Rate grammar and naturalness (0-1 scale)
+      - Suggest improvements if translation is awkward or inaccurate
+      - Output: JSON with keys: confidence, grammar, naturalness, suggestion (if any)
+    
   # Dialogue Specialist - Character voice consistency
   dialogue_specialist:
     model: "gemma3n:latest"  # Using gemma3n for all steps
@@ -83,6 +133,18 @@ multi_model:
     voice_consistency: true  # Enforce character voice consistency
     emotional_tone: true  # Preserve emotional tone
     formality_adjustment: true  # Adjust formality per character
+    
+    # Custom prompt template for dialogue refinement
+    prompt_template: |
+      Polish the following Hungarian subtitle for natural conversational flow and character voice, considering the context below. Only output the improved Hungarian subtitle, or the original if no improvement is needed.
+
+      SUBTITLE:
+      {translated_text}
+
+      CONTEXT:
+      - Characters: {characters}
+      - Emotional Arcs: {emotional_arcs}
+      - Story Summary: {story_summary}
     
   # Multi-model pipeline settings
   pipeline:
