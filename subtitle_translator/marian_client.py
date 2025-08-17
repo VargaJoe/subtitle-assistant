@@ -1,0 +1,419 @@
+"""
+MarianMT client for neural translation services using Hugging Face transformers.
+"""
+
+import logging
+import torch
+from typing import List, Optional, Dict, Any
+from pathlib import Path
+
+try:
+    from transformers import MarianMTModel, MarianTokenizer
+    import torch
+    try:
+        from transformers.utils import is_torch_available
+    except ImportError:
+        # Fallback for older transformers versions
+        def is_torch_available():
+            return torch is not None
+    TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    TRANSFORMERS_AVAILABLE = False
+    MarianMTModel = None
+    MarianTokenizer = None
+    torch = None
+    def is_torch_available():
+        return False
+
+from .config import Config
+
+
+class MarianClient:
+    """Client for MarianMT neural translation using Hugging Face transformers."""
+    
+    def __init__(self, config: Config):
+        """Initialize MarianMT client with configuration."""
+        if not TRANSFORMERS_AVAILABLE:
+            raise ImportError(
+                "Transformers library is not available. Install with: pip install transformers torch"
+            )
+        
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+        
+        # Device configuration (GPU if available, otherwise CPU)
+        if torch is not None:
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            if self.device == "cuda":
+                self.logger.info(f"Using GPU: {torch.cuda.get_device_name()}")
+            else:
+                self.logger.info("Using CPU for translation")
+        else:
+            self.device = "cpu"
+            self.logger.info("PyTorch not available, using CPU")
+        
+        # Model configuration
+        self.model_name = self._get_model_name()
+        self.model = None
+        self.tokenizer = None
+        
+        # Load model and tokenizer
+        self._load_model()
+    
+    def _get_model_name(self) -> str:
+        """Get the appropriate MarianMT model name based on language configuration."""
+        source_lang = self.config.source_lang.lower()
+        target_lang = self.config.target_lang.lower()
+        
+        # Mapping of language pairs to MarianMT model names
+        model_mapping = {
+            ("en", "hu"): "Helsinki-NLP/opus-mt-en-hu",  # Use Helsinki-NLP instead of NYTK
+            ("hu", "en"): "Helsinki-NLP/opus-mt-hu-en", 
+            ("en", "de"): "Helsinki-NLP/opus-mt-en-de",
+            ("de", "en"): "Helsinki-NLP/opus-mt-de-en",
+            ("en", "fr"): "Helsinki-NLP/opus-mt-en-fr",
+            ("fr", "en"): "Helsinki-NLP/opus-mt-fr-en",
+            ("en", "es"): "Helsinki-NLP/opus-mt-en-es",
+            ("es", "en"): "Helsinki-NLP/opus-mt-es-en",
+        }
+        
+        lang_pair = (source_lang, target_lang)
+        if lang_pair in model_mapping:
+            return model_mapping[lang_pair]
+        else:
+            # Default fallback for unsupported language pairs
+            raise ValueError(
+                f"Language pair {source_lang}->{target_lang} is not supported by MarianMT. "
+                f"Supported pairs: {list(model_mapping.keys())}"
+            )
+    
+    def _load_model(self):
+        """Load the MarianMT model and tokenizer."""
+        try:
+            self.logger.info(f"Loading MarianMT model: {self.model_name}")
+            
+            # Load tokenizer
+            self.tokenizer = MarianTokenizer.from_pretrained(
+                self.model_name,
+                cache_dir=self._get_cache_dir()
+            )
+            
+            # Load model
+            self.model = MarianMTModel.from_pretrained(
+                self.model_name,
+                cache_dir=self._get_cache_dir()
+            )
+            
+            # Move model to device (GPU/CPU)
+            self.model = self.model.to(self.device)
+            
+            # Set model to evaluation mode
+            self.model.eval()
+            
+            self.logger.info(f"MarianMT model loaded successfully on {self.device}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load MarianMT model: {e}")
+            raise ConnectionError(f"Cannot load MarianMT model '{self.model_name}': {e}")
+    
+    def _get_cache_dir(self) -> Path:
+        """Get cache directory for model files."""
+        cache_dir = Path.home() / ".cache" / "subtitle-translator" / "marianmt"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        return cache_dir
+    
+    def is_available(self) -> bool:
+        """Check if MarianMT service is available."""
+        try:
+            return (
+                TRANSFORMERS_AVAILABLE and 
+                self.model is not None and 
+                self.tokenizer is not None and
+                is_torch_available()
+            )
+        except Exception:
+            return False
+    
+    def get_available_models(self) -> List[str]:
+        """Get list of available MarianMT models."""
+        # Return the current model if available
+        if self.is_available():
+            return [self.model_name]
+        else:
+            return []
+    
+    def translate_text(self, text: str, context: Optional[str] = None) -> str:
+        """
+        Translate text using MarianMT.
+        
+        Args:
+            text: Text to translate
+            context: Optional context (not used in MarianMT but kept for compatibility)
+            
+        Returns:
+            Translated text
+            
+        Raises:
+            ConnectionError: If MarianMT service is not available
+            ValueError: If translation fails
+        """
+        if not self.is_available():
+            raise ConnectionError("MarianMT service is not available")
+        
+        if not text.strip():
+            return text
+        
+        try:
+            # Prepare input text with special tokens if needed
+            input_text = self._prepare_input_text(text)
+            
+            # Tokenize input
+            inputs = self.tokenizer(
+                input_text, 
+                return_tensors="pt", 
+                padding=True, 
+                truncation=True,
+                max_length=512
+            )
+            
+            # Move inputs to device
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            
+            # Generate translation
+            with torch.no_grad():
+                translated_tokens = self.model.generate(
+                    **inputs,
+                    max_new_tokens=128,  # Limit new tokens instead of total length
+                    min_length=1,
+                    num_beams=2,  # Reduced beam size for faster, more focused translation
+                    length_penalty=1.0,  # Neutral length penalty
+                    no_repeat_ngram_size=3,  # Prevent repetition of 3-grams
+                    repetition_penalty=1.2,  # Penalize repetition
+                    early_stopping=True,
+                    pad_token_id=self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id
+                )
+            
+            # Decode translation
+            translated_text = self.tokenizer.decode(
+                translated_tokens[0], 
+                skip_special_tokens=True
+            )
+            
+            # Clean up the translation
+            translated_text = self._clean_translation(translated_text)
+            
+            if self.config.verbose:
+                self.logger.info(f"MarianMT translated: '{text}' -> '{translated_text}'")
+            
+            return translated_text
+            
+        except Exception as e:
+            self.logger.error(f"MarianMT translation failed: {e}")
+            raise ValueError(f"Translation failed: {e}")
+    
+    def _prepare_input_text(self, text: str) -> str:
+        """Prepare input text for MarianMT (language-specific preprocessing)."""
+        # For most MarianMT models, no special preprocessing is needed
+        # But we can add language-specific handling here if needed
+        return text.strip()
+    
+    def _clean_translation(self, text: str) -> str:
+        """Clean up translation response."""
+        text = text.strip()
+        
+        # Remove any artifacts that might be added by the model
+        # MarianMT typically produces clean output, but we can add cleanup here if needed
+        
+        return text
+    
+    def translate_with_retry(self, text: str, context: Optional[str] = None) -> str:
+        """
+        Translate text with retry logic.
+        
+        Args:
+            text: Text to translate
+            context: Optional context
+            
+        Returns:
+            Translated text
+            
+        Raises:
+            ValueError: If all retries fail
+        """
+        last_error = None
+        
+        for attempt in range(self.config.max_retries):
+            try:
+                return self.translate_text(text, context)
+            except (ConnectionError, ValueError) as e:
+                last_error = e
+                if attempt < self.config.max_retries - 1:
+                    self.logger.warning(f"MarianMT translation attempt {attempt + 1} failed: {e}")
+                    continue
+                break
+        
+        raise ValueError(f"MarianMT translation failed after {self.config.max_retries} attempts: {last_error}")
+    
+    def translate_with_fallback(self, text: str, context: Optional[str] = None) -> str:
+        """
+        Translate text with fallback (MarianMT doesn't have multiple models to fallback to).
+        
+        Args:
+            text: Text to translate
+            context: Optional context
+            
+        Returns:
+            Translated text
+            
+        Raises:
+            ValueError: If translation fails
+        """
+        # For MarianMT, we just use retry logic since there's typically only one model per language pair
+        return self.translate_with_retry(text, context)
+    
+    def translate_batch(self, texts: List[str], context: Optional[str] = None) -> List[str]:
+        """
+        Translate multiple texts in batch for better performance.
+        
+        Args:
+            texts: List of texts to translate
+            context: Optional context (not used in MarianMT but kept for compatibility)
+            
+        Returns:
+            List of translated texts
+        """
+        if not texts:
+            return []
+        
+        if not self.is_available():
+            raise ConnectionError("MarianMT service is not available")
+        
+        try:
+            # Filter out empty texts but remember their positions
+            non_empty_texts = []
+            original_indices = []
+            for i, text in enumerate(texts):
+                if text.strip():
+                    non_empty_texts.append(text.strip())
+                    original_indices.append(i)
+            
+            if not non_empty_texts:
+                return texts  # All texts were empty
+            
+            # Prepare inputs for batch processing
+            prepared_texts = [self._prepare_input_text(text) for text in non_empty_texts]
+            
+            # Tokenize all inputs at once
+            inputs = self.tokenizer(
+                prepared_texts,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=512
+            )
+            
+            # Move inputs to device
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            
+            # Generate translations for the batch
+            with torch.no_grad():
+                translated_tokens = self.model.generate(
+                    **inputs,
+                    max_new_tokens=128,  # Limit new tokens instead of total length
+                    min_length=1,
+                    num_beams=2,  # Reduced beam size for faster, more focused translation
+                    length_penalty=1.0,  # Neutral length penalty
+                    no_repeat_ngram_size=3,  # Prevent repetition of 3-grams
+                    repetition_penalty=1.2,  # Penalize repetition
+                    early_stopping=True
+                )
+            
+            # Decode all translations
+            translated_texts = []
+            for i in range(len(translated_tokens)):
+                translated_text = self.tokenizer.decode(
+                    translated_tokens[i],
+                    skip_special_tokens=True
+                )
+                translated_texts.append(self._clean_translation(translated_text))
+            
+            # Rebuild the full result list, preserving original order and empty texts
+            result = texts.copy()  # Start with original list (including empty texts)
+            for i, translated_text in enumerate(translated_texts):
+                original_index = original_indices[i]
+                result[original_index] = translated_text
+            
+            if self.config.verbose:
+                self.logger.info(f"MarianMT batch translated {len(non_empty_texts)} texts")
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"MarianMT batch translation failed: {e}")
+            raise ValueError(f"Batch translation failed: {e}")
+    
+    def translate_whole_file(self, file_content: str) -> str:
+        """
+        Translate entire file content (delegates to batch processing).
+        
+        Args:
+            file_content: Complete file content to translate
+            
+        Returns:
+            Translated file content
+        """
+        # Split file content into lines and process as batch
+        lines = file_content.strip().split('\n')
+        
+        # Extract text from numbered format: [1] text -> text
+        texts_to_translate = []
+        for line in lines:
+            line = line.strip()
+            if line.startswith('[') and ']' in line:
+                # Remove index: [1] text -> text
+                bracket_end = line.find(']')
+                if bracket_end != -1:
+                    text = line[bracket_end + 1:].strip()
+                    texts_to_translate.append(text)
+                else:
+                    texts_to_translate.append(line)
+            else:
+                texts_to_translate.append(line)
+        
+        # Translate all texts in batch
+        translated_texts = self.translate_batch(texts_to_translate)
+        
+        # Rebuild file content with original numbering
+        result_lines = []
+        for i, (original_line, translated_text) in enumerate(zip(lines, translated_texts)):
+            original_line = original_line.strip()
+            if original_line.startswith('[') and ']' in original_line:
+                # Keep original numbering: [1] translated_text
+                bracket_end = original_line.find(']')
+                if bracket_end != -1:
+                    index_part = original_line[:bracket_end + 1]
+                    result_lines.append(f"{index_part} {translated_text}")
+                else:
+                    result_lines.append(translated_text)
+            else:
+                result_lines.append(translated_text)
+        
+        return '\n'.join(result_lines)
+    
+    def query_model(self, prompt: str, temperature: float = 0.3) -> str:
+        """
+        MarianMT models are translation-specific and don't support general queries.
+        This method is kept for compatibility but will raise NotImplementedError.
+        
+        Args:
+            prompt: The prompt to send to the model
+            temperature: Temperature for the model response (not used)
+            
+        Raises:
+            NotImplementedError: MarianMT doesn't support general queries
+        """
+        raise NotImplementedError(
+            "MarianMT models are specialized for translation and don't support general queries. "
+            "Use Ollama backend for multi-model pipeline features."
+        )

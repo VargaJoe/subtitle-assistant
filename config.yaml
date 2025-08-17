@@ -2,6 +2,9 @@
 
 # Translation settings
 translation:
+  # Backend selection - choose translation engine
+  backend: "ollama"  # "ollama" or "marian"
+  
   source_language: "en"
   target_language: "hu"
   

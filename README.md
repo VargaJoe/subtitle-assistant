@@ -1,6 +1,24 @@
 # Subtitle Assistant
 
-A Python-based AI-powered subtitle translation tool designed to help hearing-impaired users enjoy movies and TV shows with accurate, context-aware translations.
+A Python-b## 🛠️ Te## 🛠️ Technology Stack
+
+- **Python 3.8+** - Core language
+- **Translation Backends:**
+  - **Ollama** - Local AI translation engine (supports multi-model pipeline)
+  - **MarianMT** - Hugging Face neural translation models (fast, specialized)
+- **PyYAML** - Configuration management
+- **Requests** - HTTP client for Ollama API
+- **Transformers** - Hugging Face library for MarianMT (optional)
+- **PyTorch** - Neural network framework for MarianMT (optional)gy Stack
+
+- **Python 3.8+** - Core language
+- **Translation Backends:**
+  - **Ollama** - Local AI translation engine (supports multi-model pipeline)
+  - **MarianMT** - Hugging Face neural translation models (fast, specialized)
+- **PyYAML** - Configuration management
+- **Requests** - HTTP client for Ollama API
+- **Transformers** - Hugging Face library for MarianMT (optional)
+- **PyTorch** - Neural network framework for MarianMT (optional)I-powered subtitle translation tool designed to help hearing-impaired users enjoy movies and TV shows with accurate, context-aware translations.
 
 ## 🎯 Project Mission
 
@@ -43,9 +61,11 @@ This project aims to bridge communication gaps for hearing-impaired users by pro
 
 ### Prerequisites
 1. **Python 3.8+** installed
-2. **Ollama** running locally with a translation model
+2. **Translation Backend** (choose one):
+   - **Ollama** (recommended) - Local AI with multi-model support
+   - **MarianMT** - Hugging Face neural translation models
 
-### Setup
+### Setup with Ollama Backend (Recommended)
 ```bash
 # Clone the repository
 git clone https://github.com/VargaJoe/subtitle-assistant.git
@@ -61,6 +81,27 @@ pip install -r requirements.txt
 
 # Install Ollama model (recommended for Hungarian)
 ollama pull jobautomation/OpenEuroLLM-Hungarian:latest
+```
+
+### Setup with MarianMT Backend (Alternative)
+```bash
+# Clone the repository
+git clone https://github.com/VargaJoe/subtitle-assistant.git
+cd subtitle-assistant
+
+# Create virtual environment
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
+
+# Install dependencies including MarianMT support
+pip install -r requirements.txt
+
+# Configure for MarianMT backend in config.yaml
+# translation:
+#   backend: "marian"
+#   source_language: "en"
+#   target_language: "hu"
 ```
 
 ## 🚀 Usage
@@ -196,6 +237,47 @@ python main.py "subtitles\episode.srt" \
   --batch-size 20
 ```
 
+### Translation Backends
+
+Choose between two translation engines:
+
+#### 🔸 Ollama Backend (Recommended)
+- **Best for**: Multi-model pipeline, advanced features, context analysis
+- **Pros**: Full feature support, large model variety, local inference
+- **Cons**: Requires Ollama installation and model downloads
+- **Performance**: Good quality, configurable speed vs. quality
+
+```bash
+# Use Ollama backend (default)
+python main.py "subtitles\episode.srt" --backend ollama --mode multi-model
+
+# Configure in config.yaml
+translation:
+  backend: "ollama"
+  model: "gemma3:latest"
+```
+
+#### 🔸 MarianMT Backend (Alternative)
+- **Best for**: Fast, specialized translation without Ollama
+- **Pros**: No external dependencies, optimized for translation, smaller footprint
+- **Cons**: No multi-model features, limited to translation only
+- **Performance**: Fast and efficient, good quality for EN↔HU
+
+```bash
+# Use MarianMT backend
+python main.py "subtitles\episode.srt" --backend marian --mode line-by-line
+
+# Configure in config.yaml
+translation:
+  backend: "marian"
+  source_language: "en"
+  target_language: "hu"
+```
+
+**Supported Language Pairs (MarianMT):**
+- English ↔ Hungarian (NYTK models)
+- English ↔ German, French, Spanish (Helsinki-NLP models)
+
 ### Resume and Progress Management
 
 ```bash
@@ -215,9 +297,12 @@ Create or edit `config.yaml` for persistent settings:
 
 ```yaml
 translation:
+  # Backend selection
+  backend: "ollama"  # "ollama" or "marian"
+  
   source_language: en
   target_language: hu
-  model: "jobautomation/OpenEuroLLM-Hungarian:latest"
+  model: "jobautomation/OpenEuroLLM-Hungarian:latest"  # Ollama model
   context_window: 3
   tone:
     formality: auto  # formal, informal, auto
@@ -313,6 +398,7 @@ pipeline:
 | `--restart` | Force restart ignoring progress | `--restart` |
 | `--config`, `-c` | Configuration file | `--config my-config.yaml` |
 | `--model` | Ollama model name | `--model gemma3:latest` |
+| `--backend` | Translation backend | `--backend marian` |
 | `--source` | Source language | `--source en` |
 | `--target` | Target language | `--target hu` |
 | `--formality` | Translation style | `--formality auto` |

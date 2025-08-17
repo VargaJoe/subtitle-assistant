@@ -102,11 +102,14 @@ class MultiModelSettings:
 class Config:
     """Configuration settings for the subtitle translator."""
     
+    # Backend selection
+    translation_backend: str = "ollama"  # "ollama" or "marian"
+    
     # Basic translation settings
     source_lang: str = "en"
     target_lang: str = "hu"
-    model: str = "gemma3:latest"
-    fallback_models: List[str] = field(default_factory=lambda: ["llama3.2", "llama3.1", "jobautomation/OpenEuroLLM-Hungarian:latest", "mistral"])
+    model: str = "cogito:14b" #"gemma3n:latest"
+    fallback_models: List[str] = field(default_factory=lambda: ["gemma3:latest", "llama3.2", "llama3.1", "jobautomation/OpenEuroLLM-Hungarian:latest", "mistral"])
     verbose: bool = False
     
     # Translation quality settings
@@ -158,15 +161,16 @@ class Config:
             raise ValueError("Formality must be 'formal', 'informal', or 'auto'")
         if self.tone.style not in ["natural", "literal", "creative"]:
             raise ValueError("Style must be 'natural', 'literal', or 'creative'")
-        if self.translation_mode not in ["line-by-line", "batch", "whole-file"]:
-            raise ValueError("Translation mode must be 'line-by-line', 'batch', or 'whole-file'")
+        if self.translation_mode not in ["line-by-line", "batch", "whole-file", "multi-model"]:
+            raise ValueError("Translation mode must be 'line-by-line', 'batch', 'whole-file', or 'multi-model'")
+        if self.translation_backend not in ["ollama", "marian"]:
+            raise ValueError("Translation backend must be 'ollama' or 'marian'")
         if self.batch_size < 1:
             raise ValueError("Batch size must be at least 1")
         if self.overlap_size < 0:
             raise ValueError("Overlap size must be non-negative")
         if self.overlap_size >= self.batch_size:
             raise ValueError("Overlap size must be smaller than batch size")
-            raise ValueError("Batch size must be at least 1")
     
     @classmethod
     def from_yaml(cls, config_path: Path) -> 'Config':
@@ -247,6 +251,7 @@ class Config:
         )
         
         return cls(
+            translation_backend=data.get('translation', {}).get('backend', 'ollama'),
             source_lang=translation.get('source_language', 'en'),
             target_lang=translation.get('target_language', 'hu'),
             model=translation.get('model', 'gemma3:12b'),

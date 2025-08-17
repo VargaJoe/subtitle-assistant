@@ -41,11 +41,39 @@
 - [x] Configuration presets and troubleshooting guides
 - [x] Performance matrices and best practices documentation
 
+### Story 09 - MarianMT Alternative Translation Backend (✅ COMPLETED)
+- [x] Integrate MarianMT (Hugging Face) as alternative backend
+- [x] Add config flag for backend selection (Ollama/MarianMT)
+- [x] Implement batching, error handling, and GPU/CPU support
+- [x] Update translation logic to support both backends
+- [x] Add unit/integration tests
+- [x] Update documentation and guides
+- [x] Disable multi-model features when using MarianMT backend
+- [x] Support EN↔HU translation via NYTK models
+- [x] Add requirements.txt dependencies (torch, transformers)
+- [x] See details: [story-marianmt-alternative-backend.md](stories/story-marianmt-alternative-backend.md)
+
 ## In-Progress Stories
 
 Currently no stories in progress.
 
 ## Planned Stories
+
+### Story 10 - MarianMT Hybrid Multi-Model Architecture
+- [ ] Integrate MarianMT as Translation Model within multi-model pipeline
+- [ ] Create Context Enhancer step for LLM refinement of MarianMT output
+- [ ] Implement hybrid mode: `--backend hybrid`
+- [ ] Combine 40x speed improvement with context awareness and validation
+- [ ] Expected: 10-20x faster than current multi-model with superior quality
+- [ ] See details: [story10-marianmt-hybrid-architecture.md](stories/story10-marianmt-hybrid-architecture.md)
+
+### Story 11 - Pure MarianMT Production Pipeline
+- [ ] Optimize MarianMT for large-scale production subtitle translation
+- [ ] Implement directory batch processing and multi-file operations
+- [ ] Add production-grade quality enhancements and post-processing
+- [ ] Build automated workflow for processing entire seasons
+- [ ] Expected: Process full seasons in minutes with 90%+ quality
+- [ ] See details: [story11-pure-marianmt-production.md](stories/story11-pure-marianmt-production.md)
 
 ### Story 03 - Speech-to-Text Extraction
 - [ ] Hungarian Whisper integration

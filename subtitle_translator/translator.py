@@ -10,6 +10,7 @@ import time
 from .config import Config
 from .srt_parser import SRTParser, SubtitleEntry
 from .ollama_client import OllamaClient
+from .marian_client import MarianClient
 from .progress import TranslationProgress, ProgressMode
 from .multi_model import MultiModelOrchestrator
 
@@ -21,26 +22,57 @@ class SubtitleTranslator:
         """Initialize translator with configuration."""
         self.config = config
         self.parser = SRTParser()
-        self.ollama_client = OllamaClient(config)
+        
+        # Initialize translation client based on backend selection
+        if config.translation_backend == "ollama":
+            self.translation_client = OllamaClient(config)
+        elif config.translation_backend == "marian":
+            self.translation_client = MarianClient(config)
+        else:
+            raise ValueError(f"Unsupported translation backend: {config.translation_backend}")
+        
+        # For backwards compatibility, set ollama_client to the translation client if it's Ollama
+        if config.translation_backend == "ollama":
+            self.ollama_client = self.translation_client
+        else:
+            self.ollama_client = None
+        
         self.multi_model_orchestrator = MultiModelOrchestrator(config)
         
         # Set up logging
         self._setup_logging()
         self.logger = logging.getLogger(__name__)
         
-        # Verify Ollama connection
-        if not self.ollama_client.is_available():
-            raise ConnectionError(
-                f"Cannot connect to Ollama at {config.ollama_url}. "
-                "Please ensure Ollama is running."
+        # Warn if multi-model is enabled with MarianMT backend
+        if config.translation_backend == "marian" and config.multi_model.enabled:
+            self.logger.warning(
+                "Multi-model architecture is not supported with MarianMT backend. "
+                "Multi-model features will be disabled."
             )
+            config.multi_model.enabled = False
+        
+        # Verify translation client connection
+        if not self.translation_client.is_available():
+            backend_name = config.translation_backend.upper()
+            if config.translation_backend == "ollama":
+                raise ConnectionError(
+                    f"Cannot connect to Ollama at {config.ollama_url}. "
+                    "Please ensure Ollama is running."
+                )
+            else:
+                raise ConnectionError(
+                    f"Cannot initialize {backend_name} backend. "
+                    f"Please ensure required dependencies are installed."
+                )
         
         # Verify model availability
-        available_models = self.ollama_client.get_available_models()
-        if config.model not in available_models:
+        available_models = self.translation_client.get_available_models()
+        if config.translation_backend == "ollama" and config.model not in available_models:
             self.logger.warning(
                 f"Model '{config.model}' not found. Available models: {available_models}"
             )
+        elif config.translation_backend == "marian":
+            self.logger.info(f"Using MarianMT model: {available_models[0] if available_models else 'N/A'}")
     
     def _setup_logging(self):
         """Set up logging configuration."""
@@ -193,7 +225,7 @@ class SubtitleTranslator:
             # Translate the text
             try:
                 # First try with retry on the primary model
-                translated_text = self.ollama_client.translate_with_retry(
+                translated_text = self.translation_client.translate_with_retry(
                     entry.text, 
                     context
                 )
@@ -202,7 +234,7 @@ class SubtitleTranslator:
                 self.logger.warning(f"Primary translation failed for entry {entry.index}, trying fallback models: {e}")
                 try:
                     # Try fallback models if primary fails
-                    translated_text = self.ollama_client.translate_with_fallback(
+                    translated_text = self.translation_client.translate_with_fallback(
                         entry.text,
                         context
                     )
@@ -280,7 +312,7 @@ class SubtitleTranslator:
             
             try:
                 # Translate entire batch (including overlap for context)
-                translated_texts = self.ollama_client.translate_batch(batch_texts, batch_context)
+                translated_texts = self.translation_client.translate_batch(batch_texts, batch_context)
                 
                 # Process results: handle overlap and new entries differently
                 for i, (entry, translated_text) in enumerate(zip(full_batch, translated_texts)):
@@ -322,7 +354,7 @@ class SubtitleTranslator:
                     entry_index = batch_start + i  # Define entry_index first
                     try:
                         context = self._get_translation_context(entries, entry_index)
-                        translated_text = self.ollama_client.translate_with_retry(entry.text, context)
+                        translated_text = self.translation_client.translate_with_retry(entry.text, context)
                         
                         translated_entry = SubtitleEntry(
                             index=entry.index,
@@ -378,7 +410,7 @@ class SubtitleTranslator:
         
         try:
             # Translate entire file
-            translated_content = self.ollama_client.translate_whole_file(full_text)
+            translated_content = self.translation_client.translate_whole_file(full_text)
             
             # Parse translated content back into entries
             translated_entries = self._parse_whole_file_translation(entries, translated_content)
@@ -524,20 +556,31 @@ class SubtitleTranslator:
             True if setup is valid, False otherwise
         """
         try:
-            # Check Ollama connection
-            if not self.ollama_client.is_available():
-                print("❌ Ollama service is not available")
+            # Check translation client connection
+            if not self.translation_client.is_available():
+                backend_name = self.config.translation_backend.upper()
+                print(f"❌ {backend_name} service is not available")
                 return False
             
-            # Check if model is available
-            available_models = self.ollama_client.get_available_models()
-            if self.config.model not in available_models:
-                print(f"❌ Model '{self.config.model}' is not available")
-                print(f"Available models: {available_models}")
-                return False
+            # Check if model is available (only for Ollama backend)
+            if self.config.translation_backend == "ollama":
+                available_models = self.translation_client.get_available_models()
+                if self.config.model not in available_models:
+                    print(f"❌ Model '{self.config.model}' is not available")
+                    print(f"Available models: {available_models}")
+                    return False
+                print(f"✅ Model '{self.config.model}': Available")
+            else:
+                # For MarianMT, just check if it's available
+                available_models = self.translation_client.get_available_models()
+                if available_models:
+                    print(f"✅ MarianMT model: {available_models[0]}")
+                else:
+                    print("❌ No MarianMT models available")
+                    return False
             
-            print("✅ Ollama connection: OK")
-            print(f"✅ Model '{self.config.model}': Available")
+            backend_name = self.config.translation_backend.upper()
+            print(f"✅ {backend_name} connection: OK")
             print(f"✅ Translation: {self.config.source_lang} -> {self.config.target_lang}")
             
             return True

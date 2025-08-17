@@ -388,9 +388,13 @@ class MultiModelOrchestrator:
             batch_text = "\n".join(batch_lines)
             
             # Create batch translation prompt with explicit number preservation
-            # Get the first and last entry numbers for the example
-            first_num = batch[0].index
-            last_num = batch[-1].index
+            # Generate example using actual entry numbers from this batch
+            example_lines = []
+            for i, entry in enumerate(batch[:3]):  # Show first 3 as examples
+                example_lines.append(f"[{entry.index}] Hungarian translation of line {entry.index}")
+            example_output = "\n".join(example_lines)
+            if len(batch) > 3:
+                example_output += f"\n...continue for all lines through...\n[{batch[-1].index}] Hungarian translation of line {batch[-1].index}"
             
             prompt = f"""<TASK>
 Translate subtitle lines from English to Hungarian.
@@ -398,7 +402,7 @@ Translate subtitle lines from English to Hungarian.
 
 <CRITICAL_RULES>
 1. ONLY translate the text content after each [number] marker
-2. KEEP the exact same [number] markers in your response
+2. KEEP the exact same [number] markers in your response  
 3. Do NOT translate these instructions or any other text
 4. Provide exactly one Hungarian translation for each numbered line
 </CRITICAL_RULES>
@@ -409,10 +413,7 @@ Translate subtitle lines from English to Hungarian.
 
 <EXPECTED_OUTPUT>
 Your response must contain ONLY these translations with the EXACT same numbers:
-[{first_num}] Hungarian translation of line {first_num}
-[{first_num+1}] Hungarian translation of line {first_num+1}
-...continue for all lines through...
-[{last_num}] Hungarian translation of line {last_num}
+{example_output}
 </EXPECTED_OUTPUT>"""
 
             try:

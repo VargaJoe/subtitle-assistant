@@ -60,6 +60,12 @@ Examples:
     )
     
     parser.add_argument(
+        "--backend",
+        choices=["ollama", "marian"],
+        help="Translation backend: ollama (default) or marian (MarianMT)"
+    )
+    
+    parser.add_argument(
         "--formality",
         choices=["formal", "informal", "auto"],
         help="Translation formality level (overrides config)"
@@ -156,6 +162,8 @@ Examples:
         config.target_lang = args.target
     if args.model:
         config.model = args.model
+    if args.backend:
+        config.translation_backend = args.backend
     if args.formality:
         config.tone.formality = args.formality
     if args.mode:
