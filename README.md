@@ -107,18 +107,20 @@ python main.py "season1/*.srt" --backend marian --output "translated/{name}.hu.s
 
 ## 🏗️ Translation Backends
 
-### 🔥 MarianMT Backend (Recommended)
-- **Best for**: Production use, fast processing, reliable quality
-- **Pros**: Ultra-fast (40x speedup), cross-entry detection, offline, reliable
-- **Cons**: Limited to translation only (no multi-model pipeline)
-- **Languages**: EN↔HU (Helsinki-NLP), EN↔DE/FR/ES (Helsinki-NLP)
-- **Model**: Helsinki-NLP/opus-mt-en-hu (484MB, auto-downloaded)
+### 🔥 MarianMT Backend (Recommended & Production-Ready)
+- **Ultimate Solution:** MarianMT is the only backend that consistently produces satisfactory, high-quality translations in all tested scenarios.
+- **Best for:** Production use, fast processing, reliable quality
+- **Pros:** Ultra-fast (40x speedup), cross-entry detection, offline, reliable
+- **Cons:** Limited to translation only (no multi-model pipeline)
+- **Languages:** EN↔HU (Helsinki-NLP), EN↔DE/FR/ES (Helsinki-NLP)
+- **Model:** Helsinki-NLP/opus-mt-en-hu (484MB, auto-downloaded)
 
-### 🧪 Ollama Backend (Experimental)
-- **Best for**: Multi-model pipeline, experimental features, custom AI models
-- **Pros**: Multi-model architecture, context analysis, dialogue specialist, technical validation
-- **Cons**: Much slower, requires Ollama installation, experimental status
-- **Features**: 4-phase pipeline (context → translation → validation → dialogue)
+### 🧪 Ollama Backend (Experimental & Not Recommended)
+- **Warning:** Despite extensive testing and prompt engineering, Ollama models (both translation-only and multi-model pipeline) did NOT produce satisfactory translations yet. Quality was consistently poor and not suitable for production use.
+- **Pros**: Would be if multi-model architecture worked with context analysis, dialogue specialist, technical validation
+- **Best for:** Experimental research, custom AI model exploration
+- **Cons:** Much slower, requires Ollama installation, experimental status, poor translation quality in all tested modes
+- **Features:** Multi-model architecture4-phase pipeline: context → translation → validation → dialogue (but results not satisfactory)
 
 ## 🎛️ Configuration
 
@@ -168,10 +170,10 @@ Advanced 4-phase translation workflow:
 
 ## 🔍 Performance Comparison
 
-| Backend | Speed per Entry | Features | Quality | Recommended Use |
-|---------|----------------|----------|---------|-----------------|
-| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡ | Cross-entry detection, Smart multiline | High ⭐⭐⭐⭐ | **Production** |
-| Ollama | 5-6s ⚡ | Multi-model pipeline, Context analysis | Highest ⭐⭐⭐⭐⭐ | Experimental |
+| Backend    | Speed per Entry | Features                                 | Quality         | Recommended Use         |
+|------------|----------------|------------------------------------------|-----------------|------------------------|
+| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡ | Cross-entry detection, Smart multiline   | **Ultimate** ⭐⭐⭐⭐⭐ | **Production**         |
+| Ollama     | 5-6s ⚡         | Multi-model pipeline, Context analysis   | **Unsatisfactory** | Experimental/Not Recommended |
 
 ## 📋 Supported Language Pairs
 
@@ -201,9 +203,9 @@ python main.py "test_sample.srt" --backend marian --verbose
 
 ## ⚠️ Important Notes
 
-- **MarianMT is the recommended backend** for most users due to its reliability and speed
-- Ollama backend is experimental and primarily for research/development
-- Cross-entry sentence detection is a unique feature providing superior translation quality
+- **MarianMT is the ONLY backend that consistently produces satisfactory translations.**
+- Ollama backend (translation-only and multi-model) did NOT yield acceptable results, even after extensive prompt engineering and testing.
+- Cross-entry sentence detection is a unique MarianMT feature providing superior translation quality.
 - All processing is done locally - no data sent to external services
 
 ## 🤝 Contributing
