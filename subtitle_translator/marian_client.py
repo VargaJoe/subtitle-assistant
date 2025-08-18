@@ -164,20 +164,45 @@ class MarianClient:
             return text
         
         try:
-            # Handle multi-line text by splitting and translating each line separately
+            # Handle multi-line text based on configuration strategy
             lines = text.split('\n')
             if len(lines) > 1:
-                # Multi-line text: translate each line separately and reassemble
-                translated_lines = []
-                for line in lines:
-                    line = line.strip()
-                    if line:  # Only translate non-empty lines
-                        translated_line = self._translate_single_line(line)
-                        translated_lines.append(translated_line)
-                    else:
-                        translated_lines.append('')  # Preserve empty lines
+                strategy = self.config.marian.multiline_strategy
                 
-                translated_text = '\n'.join(translated_lines)
+                if strategy == "join_all":
+                    # Always join all lines into single sentence
+                    combined_text = ' '.join(line.strip() for line in lines if line.strip())
+                    translated_text = self._translate_single_line(combined_text)
+                    
+                elif strategy == "preserve_lines":
+                    # Always keep line breaks (previous behavior)
+                    translated_lines = []
+                    for line in lines:
+                        line = line.strip()
+                        if line:  # Only translate non-empty lines
+                            translated_line = self._translate_single_line(line)
+                            translated_lines.append(translated_line)
+                        else:
+                            translated_lines.append('')  # Preserve empty lines
+                    translated_text = '\n'.join(translated_lines)
+                    
+                else:  # strategy == "smart"
+                    # Intelligently detect single sentences vs dialogue/multiple sentences
+                    if self._should_join_lines(lines):
+                        # Single sentence split across lines - join and translate
+                        combined_text = ' '.join(line.strip() for line in lines if line.strip())
+                        translated_text = self._translate_single_line(combined_text)
+                    else:
+                        # Multiple sentences or dialogue - translate separately
+                        translated_lines = []
+                        for line in lines:
+                            line = line.strip()
+                            if line:  # Only translate non-empty lines
+                                translated_line = self._translate_single_line(line)
+                                translated_lines.append(translated_line)
+                            else:
+                                translated_lines.append('')  # Preserve empty lines
+                        translated_text = '\n'.join(translated_lines)
             else:
                 # Single line text: translate normally
                 translated_text = self._translate_single_line(text.strip())
@@ -190,6 +215,68 @@ class MarianClient:
         except Exception as e:
             self.logger.error(f"MarianMT translation failed: {e}")
             raise ValueError(f"Translation failed: {e}")
+    
+    def _should_join_lines(self, lines: List[str]) -> bool:
+        """
+        Determine if lines should be joined as a single sentence or kept separate.
+        
+        Args:
+            lines: List of text lines
+            
+        Returns:
+            True if lines should be joined (single sentence), False if kept separate (dialogue/multiple sentences)
+        """
+        # Remove empty lines for analysis
+        non_empty_lines = [line.strip() for line in lines if line.strip()]
+        
+        if len(non_empty_lines) <= 1:
+            return True  # Single line or empty, no need to join
+        
+        # Check for dialogue indicators
+        dialogue_indicators = ['-', '—', '–', '•']
+        for line in non_empty_lines:
+            if any(line.startswith(indicator) for indicator in dialogue_indicators):
+                return False  # Dialogue detected, keep separate
+        
+        # Check for multiple sentences (ending with sentence terminators)
+        sentence_endings = ['.', '!', '?', '…']
+        sentences_found = 0
+        
+        for line in non_empty_lines[:-1]:  # Don't check the last line
+            if any(line.rstrip().endswith(ending) for ending in sentence_endings):
+                sentences_found += 1
+        
+        if sentences_found > 0:
+            return False  # Multiple sentences detected, keep separate
+        
+        # Check for specific patterns that indicate continuation
+        continuation_patterns = [
+            # First line ends with conjunction, preposition, or incomplete phrase
+            lambda line: line.rstrip().split()[-1].lower() in ['and', 'or', 'but', 'that', 'which', 'who', 'when', 'where', 'how', 'why', 'because', 'since', 'while', 'if', 'unless', 'although', 'though', 'whereas', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from', 'of', 'about'],
+            # First line doesn't end with punctuation (incomplete sentence)
+            lambda line: not any(line.rstrip().endswith(ending) for ending in sentence_endings + [',', ';', ':']),
+            # Second line starts with lowercase (likely continuation)
+            lambda line: len(line) > 0 and line[0].islower()
+        ]
+        
+        first_line = non_empty_lines[0]
+        second_line = non_empty_lines[1] if len(non_empty_lines) > 1 else ""
+        
+        # Check first line patterns
+        for pattern in continuation_patterns[:-1]:
+            if pattern(first_line):
+                return True  # Likely continuation, join lines
+        
+        # Check second line pattern
+        if second_line and continuation_patterns[-1](second_line):
+            return True  # Likely continuation, join lines
+        
+        # Additional check: if first line is very short and doesn't end with punctuation
+        if len(first_line.strip()) < 30 and not any(first_line.rstrip().endswith(ending) for ending in sentence_endings):
+            return True  # Likely incomplete, join lines
+        
+        # Default: treat as separate sentences/lines
+        return False
     
     def _translate_single_line(self, text: str) -> str:
         """
@@ -323,7 +410,7 @@ class MarianClient:
             raise ConnectionError("MarianMT service is not available")
         
         try:
-            # Handle multi-line texts by translating line by line to preserve structure
+            # Handle multi-line texts using the same strategy as translate_text
             result = []
             for text in texts:
                 if not text.strip():
@@ -333,17 +420,42 @@ class MarianClient:
                 # Use the same multi-line handling as translate_text
                 lines = text.split('\n')
                 if len(lines) > 1:
-                    # Multi-line text: translate each line separately and reassemble
-                    translated_lines = []
-                    for line in lines:
-                        line = line.strip()
-                        if line:  # Only translate non-empty lines
-                            translated_line = self._translate_single_line(line)
-                            translated_lines.append(translated_line)
-                        else:
-                            translated_lines.append('')  # Preserve empty lines
+                    strategy = self.config.marian.multiline_strategy
                     
-                    translated_text = '\n'.join(translated_lines)
+                    if strategy == "join_all":
+                        # Always join all lines into single sentence
+                        combined_text = ' '.join(line.strip() for line in lines if line.strip())
+                        translated_text = self._translate_single_line(combined_text)
+                        
+                    elif strategy == "preserve_lines":
+                        # Always keep line breaks
+                        translated_lines = []
+                        for line in lines:
+                            line = line.strip()
+                            if line:  # Only translate non-empty lines
+                                translated_line = self._translate_single_line(line)
+                                translated_lines.append(translated_line)
+                            else:
+                                translated_lines.append('')  # Preserve empty lines
+                        translated_text = '\n'.join(translated_lines)
+                        
+                    else:  # strategy == "smart"
+                        # Intelligently detect single sentences vs dialogue/multiple sentences
+                        if self._should_join_lines(lines):
+                            # Single sentence split across lines - join and translate
+                            combined_text = ' '.join(line.strip() for line in lines if line.strip())
+                            translated_text = self._translate_single_line(combined_text)
+                        else:
+                            # Multiple sentences or dialogue - translate separately
+                            translated_lines = []
+                            for line in lines:
+                                line = line.strip()
+                                if line:  # Only translate non-empty lines
+                                    translated_line = self._translate_single_line(line)
+                                    translated_lines.append(translated_line)
+                                else:
+                                    translated_lines.append('')  # Preserve empty lines
+                            translated_text = '\n'.join(translated_lines)
                 else:
                     # Single line text: translate normally
                     translated_text = self._translate_single_line(text.strip())

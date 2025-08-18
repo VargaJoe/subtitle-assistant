@@ -66,6 +66,12 @@ Examples:
     )
     
     parser.add_argument(
+        "--multiline-strategy",
+        choices=["smart", "preserve_lines", "join_all"],
+        help="MarianMT multiline handling: smart (detect sentences vs dialogue), preserve_lines (keep line breaks), join_all (join as single sentence)"
+    )
+    
+    parser.add_argument(
         "--formality",
         choices=["formal", "informal", "auto"],
         help="Translation formality level (overrides config)"
@@ -164,6 +170,8 @@ Examples:
         config.model = args.model
     if args.backend:
         config.translation_backend = args.backend
+    if hasattr(args, 'multiline_strategy') and args.multiline_strategy:
+        config.marian.multiline_strategy = args.multiline_strategy
     if args.formality:
         config.tone.formality = args.formality
     if args.mode:

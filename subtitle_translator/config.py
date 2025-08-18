@@ -25,6 +25,22 @@ class HungarianSettings:
 
 
 @dataclass
+class MarianSettings:
+    """MarianMT-specific translation settings."""
+    model: str = "Helsinki-NLP/opus-mt-en-hu"
+    max_new_tokens: int = 128
+    repetition_penalty: float = 1.2
+    no_repeat_ngram_size: int = 3
+    device: str = "auto"  # "auto", "cuda", "cpu"
+    
+    # Multi-line handling strategy
+    multiline_strategy: str = "smart"  # "smart", "preserve_lines", "join_all"
+    # smart: Intelligently detect single sentences vs dialogue
+    # preserve_lines: Always keep line breaks (previous behavior)
+    # join_all: Always join all lines into single sentence
+
+
+@dataclass
 class ModelSettings:
     """Settings for individual models in multi-model architecture."""
     model: str = "gemma3:latest"
@@ -122,6 +138,9 @@ class Config:
     ollama_port: int = 11434
     ollama_timeout: int = 30
     
+    # MarianMT settings
+    marian: MarianSettings = field(default_factory=MarianSettings)
+    
     # Tone and style settings
     tone: ToneSettings = field(default_factory=ToneSettings)
     hungarian: HungarianSettings = field(default_factory=HungarianSettings)
@@ -148,6 +167,8 @@ class Config:
             self.tone = ToneSettings()
         if not isinstance(self.hungarian, HungarianSettings):
             self.hungarian = HungarianSettings()
+        if not isinstance(self.marian, MarianSettings):
+            self.marian = MarianSettings()
         if not isinstance(self.multi_model, MultiModelSettings):
             self.multi_model = MultiModelSettings()
             
@@ -171,6 +192,8 @@ class Config:
             raise ValueError("Overlap size must be non-negative")
         if self.overlap_size >= self.batch_size:
             raise ValueError("Overlap size must be smaller than batch size")
+        if self.marian.multiline_strategy not in ["smart", "preserve_lines", "join_all"]:
+            raise ValueError("MarianMT multiline strategy must be 'smart', 'preserve_lines', or 'join_all'")
     
     @classmethod
     def from_yaml(cls, config_path: Path) -> 'Config':
@@ -206,6 +229,17 @@ class Config:
             use_informal_when_appropriate=hungarian_data.get('use_informal_when_appropriate', True),
             preserve_english_names=hungarian_data.get('preserve_english_names', True),
             handle_contractions=hungarian_data.get('handle_contractions', True)
+        )
+        
+        # Create MarianMT settings
+        marian_data = data.get('marian', {})
+        marian = MarianSettings(
+            model=marian_data.get('model', 'Helsinki-NLP/opus-mt-en-hu'),
+            max_new_tokens=marian_data.get('max_new_tokens', 128),
+            repetition_penalty=marian_data.get('repetition_penalty', 1.2),
+            no_repeat_ngram_size=marian_data.get('no_repeat_ngram_size', 3),
+            device=marian_data.get('device', 'auto'),
+            multiline_strategy=marian_data.get('multiline_strategy', 'smart')
         )
         
         multi_model = MultiModelSettings(
@@ -264,6 +298,7 @@ class Config:
             ollama_timeout=ollama.get('timeout', 30),
             tone=tone,
             hungarian=hungarian,
+            marian=marian,
             multi_model=multi_model,
             translation_mode=processing.get('translation_mode', 'line-by-line'),
             batch_size=processing.get('batch_size', 10),

@@ -1,6 +1,53 @@
-# MarianMT Translation Backend - User Guide
+# MarianMT Translation Backend - User### Performance Modes
 
-## Overview
+```powershell
+# Line-by-line mode (safest, resumable)
+python main.py "subtitles/sample.srt" --backend marian --mode line-by-line
+
+# Batch mode (faster processing)
+python main.py "subtitles/sample.srt" --backend marian --mode batch
+
+# Whole-file mode (fastest for small files)
+python main.py "subtitles/sample.srt" --backend marian --mode whole-file
+```
+
+### Multi-Line Subtitle Handling
+
+MarianMT supports intelligent handling of multi-line subtitles with configurable strategies:
+
+```powershell
+# Smart detection (default) - automatically detects single sentences vs dialogue
+python main.py "subtitles/sample.srt" --backend marian --multiline-strategy smart
+
+# Preserve line breaks - always keep original line structure
+python main.py "subtitles/sample.srt" --backend marian --multiline-strategy preserve_lines
+
+# Join all lines - always combine into single sentence
+python main.py "subtitles/sample.srt" --backend marian --multiline-strategy join_all
+```
+
+**Strategy Examples:**
+
+**Smart Strategy (Recommended):**
+```
+Input:  "A loud enough fight\nthat your neighbors called 911."
+Output: "Egy elég hangos harc, amit a szomszédok hívtak a 911-nek."  ✅ Single sentence
+
+Input:  "- Have you seen my daughter?\n- No, lo siento."
+Output: "- Nem láttad a lányomat?\n- Nem, lo siento."  ✅ Dialogue preserved
+```
+
+**Preserve Lines Strategy:**
+```
+Input:  "A loud enough fight\nthat your neighbors called 911."
+Output: "Hangos, elég harc.\nhogy a szomszédja hívta a 911-et."  ❌ Broken grammar
+```
+
+**Join All Strategy:**
+```
+Input:  "- Have you seen my daughter?\n- No, lo siento."
+Output: "- Nem láttad a lányomat?"  ❌ Dialogue lost
+``` Overview
 
 MarianMT is a high-performance neural machine translation backend for the Subtitle Assistant project. It provides **40x faster** translation speeds compared to Ollama while maintaining excellent translation quality.
 

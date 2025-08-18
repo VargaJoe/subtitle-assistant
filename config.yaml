@@ -41,6 +41,20 @@ ollama:
   port: 11434
   timeout: 300  # Increased timeout for large models (in seconds)
 
+# MarianMT settings
+marian:
+  model: "Helsinki-NLP/opus-mt-en-hu"
+  max_new_tokens: 128
+  repetition_penalty: 1.2
+  no_repeat_ngram_size: 3
+  device: "auto"  # "auto", "cuda", "cpu"
+  
+  # Multi-line handling options
+  multiline_strategy: "smart"  # "smart", "preserve_lines", "join_all"
+  # smart: Detect single sentences vs dialogue and handle appropriately
+  # preserve_lines: Always keep line breaks (current behavior)
+  # join_all: Always join all lines into single sentence
+
 # Processing settings
 processing:
   translation_mode: "line-by-line"  # "line-by-line", "batch", "whole-file"
