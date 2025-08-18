@@ -11,7 +11,7 @@ python main.py "subtitles/sample.srt" --backend marian --mode batch
 python main.py "subtitles/sample.srt" --backend marian --mode whole-file
 ```
 
-### Multi-Line Subtitle Handling
+## Multi-Line Subtitle Handling
 
 MarianMT supports intelligent handling of multi-line subtitles with configurable strategies:
 
