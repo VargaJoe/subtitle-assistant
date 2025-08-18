@@ -54,6 +54,10 @@ marian:
   # smart: Detect single sentences vs dialogue and handle appropriately
   # preserve_lines: Always keep line breaks (current behavior)
   # join_all: Always join all lines into single sentence
+  
+  # Cross-entry sentence detection
+  cross_entry_detection: true  # Detect sentences spanning multiple subtitle entries
+  # Only active when multiline_strategy is "smart"
 
 # Processing settings
 processing:

@@ -38,6 +38,10 @@ class MarianSettings:
     # smart: Intelligently detect single sentences vs dialogue
     # preserve_lines: Always keep line breaks (previous behavior)
     # join_all: Always join all lines into single sentence
+    
+    # Cross-entry sentence detection
+    cross_entry_detection: bool = True  # Detect sentences spanning multiple subtitle entries
+    # Only active when multiline_strategy is "smart"
 
 
 @dataclass
@@ -239,7 +243,8 @@ class Config:
             repetition_penalty=marian_data.get('repetition_penalty', 1.2),
             no_repeat_ngram_size=marian_data.get('no_repeat_ngram_size', 3),
             device=marian_data.get('device', 'auto'),
-            multiline_strategy=marian_data.get('multiline_strategy', 'smart')
+            multiline_strategy=marian_data.get('multiline_strategy', 'smart'),
+            cross_entry_detection=marian_data.get('cross_entry_detection', True)
         )
         
         multi_model = MultiModelSettings(

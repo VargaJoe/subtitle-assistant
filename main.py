@@ -72,6 +72,18 @@ Examples:
     )
     
     parser.add_argument(
+        "--cross-entry-detection",
+        action="store_true",
+        help="Enable cross-entry sentence detection for MarianMT (default: enabled)"
+    )
+    
+    parser.add_argument(
+        "--no-cross-entry-detection",
+        action="store_true",
+        help="Disable cross-entry sentence detection for MarianMT"
+    )
+    
+    parser.add_argument(
         "--formality",
         choices=["formal", "informal", "auto"],
         help="Translation formality level (overrides config)"
@@ -172,6 +184,10 @@ Examples:
         config.translation_backend = args.backend
     if hasattr(args, 'multiline_strategy') and args.multiline_strategy:
         config.marian.multiline_strategy = args.multiline_strategy
+    if hasattr(args, 'cross_entry_detection') and args.cross_entry_detection:
+        config.marian.cross_entry_detection = True
+    if hasattr(args, 'no_cross_entry_detection') and args.no_cross_entry_detection:
+        config.marian.cross_entry_detection = False
     if args.formality:
         config.tone.formality = args.formality
     if args.mode:

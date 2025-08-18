@@ -208,6 +208,23 @@ class SubtitleTranslator:
             # Use multi-model pipeline for line-by-line mode as well
             return self.multi_model_orchestrator.translate_with_multimodel(entries, progress)
         
+        # Check if cross-entry detection is enabled for MarianMT
+        use_cross_entry = (
+            self.config.translation_backend == "marian" and
+            self.config.marian.cross_entry_detection and 
+            self.config.marian.multiline_strategy == "smart"
+        )
+        
+        if use_cross_entry:
+            self.logger.info("Using cross-entry sentence detection for MarianMT translation")
+            # Detect cross-entry sentence groups
+            groups = self._detect_cross_entry_groups(entries)
+            self.logger.info(f"Detected {len(groups)} sentence groups from {len(entries)} entries")
+            
+            # Translate using group-based approach
+            return self._translate_entry_groups(entries, groups, progress, start_offset)
+        
+        # Standard line-by-line translation
         translated_entries = []
         total_entries = len(entries)
         
@@ -588,3 +605,262 @@ class SubtitleTranslator:
         except Exception as e:
             print(f"❌ Validation failed: {e}")
             return False
+    
+    def _detect_cross_entry_groups(self, entries: List[SubtitleEntry]) -> List[List[int]]:
+        """
+        Detect groups of consecutive entries that form complete sentences across multiple subtitles.
+        
+        Args:
+            entries: List of subtitle entries to analyze
+            
+        Returns:
+            List of index groups, where each group contains indices of entries that should be translated together
+        """
+        groups = []
+        current_group = []
+        
+        for i, entry in enumerate(entries):
+            current_group.append(i)
+            
+            # Check if this entry completes a sentence or should continue
+            if self._entry_completes_sentence(entry):
+                # Entry completes a sentence, finalize current group
+                if len(current_group) > 1:
+                    groups.append(current_group.copy())
+                elif len(current_group) == 1:
+                    # Single entry group, just add it as-is
+                    groups.append(current_group.copy())
+                current_group = []
+            else:
+                # Entry doesn't complete sentence, check if next entry continues it
+                if i + 1 < len(entries):
+                    next_entry = entries[i + 1]
+                    if not self._entry_continues_sentence(entry, next_entry):
+                        # Next entry doesn't continue, finalize current group
+                        groups.append(current_group.copy())
+                        current_group = []
+                else:
+                    # Last entry, finalize group
+                    groups.append(current_group.copy())
+                    current_group = []
+        
+        # Handle any remaining group
+        if current_group:
+            groups.append(current_group)
+        
+        return groups
+    
+    def _entry_completes_sentence(self, entry: SubtitleEntry) -> bool:
+        """
+        Check if a subtitle entry completes a sentence.
+        
+        Args:
+            entry: Subtitle entry to analyze
+            
+        Returns:
+            True if entry completes a sentence, False otherwise
+        """
+        text = entry.text.strip()
+        if not text:
+            return True
+        
+        # Remove dialogue markers for analysis
+        clean_text = text
+        for marker in ['-', '—', '–', '•']:
+            if clean_text.startswith(marker):
+                clean_text = clean_text[len(marker):].strip()
+                break
+        
+        # Check for sentence endings
+        sentence_endings = ['.', '!', '?', '…']
+        if any(clean_text.rstrip().endswith(ending) for ending in sentence_endings):
+            return True
+        
+        # Check for dialogue - if it contains dialogue markers, consider it complete
+        if any(marker in text for marker in ['-', '—', '–']):
+            return True
+        
+        return False
+    
+    def _entry_continues_sentence(self, current_entry: SubtitleEntry, next_entry: SubtitleEntry) -> bool:
+        """
+        Check if the next entry continues the sentence from the current entry.
+        
+        Args:
+            current_entry: Current subtitle entry
+            next_entry: Next subtitle entry
+            
+        Returns:
+            True if next entry continues the sentence, False otherwise
+        """
+        current_text = current_entry.text.strip()
+        next_text = next_entry.text.strip()
+        
+        if not current_text or not next_text:
+            return False
+        
+        # If current entry already completes a sentence, next doesn't continue
+        if self._entry_completes_sentence(current_entry):
+            return False
+        
+        # Check if next entry starts with lowercase (likely continuation)
+        first_char = next_text[0]
+        if first_char.islower():
+            return True
+        
+        # Check if current entry ends with conjunction or preposition
+        current_words = current_text.rstrip().split()
+        if current_words:
+            last_word = current_words[-1].lower().rstrip(',;:')
+            continuation_words = [
+                'and', 'or', 'but', 'that', 'which', 'who', 'when', 'where', 'how', 'why',
+                'because', 'since', 'while', 'if', 'unless', 'although', 'though', 'whereas',
+                'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from', 'of', 'about', 'so'
+            ]
+            if last_word in continuation_words:
+                return True
+        
+        # Check if current entry doesn't end with punctuation (incomplete)
+        punctuation = ['.', '!', '?', '…', ',', ';', ':']
+        if not any(current_text.rstrip().endswith(p) for p in punctuation):
+            return True
+        
+        return False
+    
+    def _translate_entry_groups(self, entries: List[SubtitleEntry], groups: List[List[int]], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
+        """
+        Translate entries in groups for better cross-entry sentence handling.
+        
+        Args:
+            entries: List of all subtitle entries
+            groups: List of index groups to translate together
+            progress: Progress manager for saving state
+            start_offset: Starting index offset for progress display
+            
+        Returns:
+            List of translated subtitle entries
+        """
+        translated_entries = []
+        total_groups = len(groups)
+        
+        for group_index, group_indices in enumerate(groups):
+            if self.config.verbose:
+                current_index = start_offset + len(translated_entries) + 1
+                total_with_offset = progress.total_entries
+                progress_pct = (current_index / total_with_offset) * 100
+                print(f"\rTranslating group {group_index + 1}/{total_groups}: {progress_pct:.1f}% ({current_index}/{total_with_offset})", end="", flush=True)
+            
+            if len(group_indices) == 1:
+                # Single entry, translate normally
+                entry = entries[group_indices[0]]
+                context = self._get_translation_context(entries, group_indices[0]) if self.config.context_window > 0 else None
+                
+                try:
+                    translated_text = self.translation_client.translate_with_retry(entry.text, context)
+                    translated_entry = SubtitleEntry(
+                        index=entry.index,
+                        start_time=entry.start_time,
+                        end_time=entry.end_time,
+                        text=translated_text
+                    )
+                    translated_entries.append(translated_entry)
+                    
+                except Exception as e:
+                    self.logger.warning(f"Translation failed for entry {entry.index}: {e}")
+                    translated_entries.append(entry)  # Keep original
+                    
+            else:
+                # Multiple entries forming a sentence, translate as group
+                group_entries = [entries[i] for i in group_indices]
+                combined_text = ' '.join(entry.text.strip() for entry in group_entries)
+                
+                # Get context from the first entry in the group
+                context = self._get_translation_context(entries, group_indices[0]) if self.config.context_window > 0 else None
+                
+                try:
+                    # Translate the combined sentence
+                    translated_combined = self.translation_client.translate_with_retry(combined_text, context)
+                    
+                    # Split the translated text back to individual entries
+                    split_translations = self._split_translation_to_entries(
+                        translated_combined, group_entries
+                    )
+                    
+                    # Create translated entries with original timing
+                    for i, (original_entry, split_text) in enumerate(zip(group_entries, split_translations)):
+                        translated_entry = SubtitleEntry(
+                            index=original_entry.index,
+                            start_time=original_entry.start_time,
+                            end_time=original_entry.end_time,
+                            text=split_text
+                        )
+                        translated_entries.append(translated_entry)
+                        
+                except Exception as e:
+                    self.logger.warning(f"Group translation failed for entries {group_indices}: {e}")
+                    # Fallback to original entries
+                    translated_entries.extend(group_entries)
+            
+            # Update progress after each group
+            progress.current_index = start_offset + len(translated_entries)
+            progress.translated_entries = translated_entries.copy()
+            progress.save_progress()
+        
+        if self.config.verbose:
+            print()  # New line after progress
+        
+        return translated_entries
+    
+    def _split_translation_to_entries(self, translated_text: str, original_entries: List[SubtitleEntry]) -> List[str]:
+        """
+        Split a translated sentence back to individual subtitle entries proportionally.
+        
+        Args:
+            translated_text: The translated sentence
+            original_entries: List of original entries that formed the sentence
+            
+        Returns:
+            List of text portions for each original entry
+        """
+        if len(original_entries) == 1:
+            return [translated_text]
+        
+        # Calculate proportional lengths based on original entries
+        original_lengths = [len(entry.text.strip()) for entry in original_entries]
+        total_original_length = sum(original_lengths)
+        
+        if total_original_length == 0:
+            # Edge case: all entries are empty, split equally
+            words = translated_text.split()
+            words_per_entry = len(words) // len(original_entries)
+            remainder = len(words) % len(original_entries)
+            
+            result = []
+            start_idx = 0
+            for i in range(len(original_entries)):
+                end_idx = start_idx + words_per_entry + (1 if i < remainder else 0)
+                result.append(' '.join(words[start_idx:end_idx]))
+                start_idx = end_idx
+            return result
+        
+        # Split proportionally by character count
+        translated_words = translated_text.split()
+        total_words = len(translated_words)
+        
+        result = []
+        words_used = 0
+        
+        for i, original_entry in enumerate(original_entries):
+            if i == len(original_entries) - 1:
+                # Last entry gets all remaining words
+                portion_words = translated_words[words_used:]
+            else:
+                # Calculate proportional word count
+                proportion = original_lengths[i] / total_original_length
+                words_for_this_entry = max(1, int(total_words * proportion))
+                portion_words = translated_words[words_used:words_used + words_for_this_entry]
+                words_used += words_for_this_entry
+            
+            result.append(' '.join(portion_words))
+        
+        return result
