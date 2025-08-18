@@ -51,6 +51,10 @@
 - [x] Disable multi-model features when using MarianMT backend
 - [x] Support EN↔HU translation via NYTK models
 - [x] Add requirements.txt dependencies (torch, transformers)
+- [x] **NEW**: Intelligent multiline detection with 3 configurable strategies (smart/preserve_lines/join_all)
+- [x] **NEW**: Cross-entry sentence detection spanning multiple subtitle timestamps
+- [x] **NEW**: Proportional text distribution maintaining original timing
+- [x] **NEW**: CLI options for multiline strategy and cross-entry detection control
 - [x] See details: [story-marianmt-alternative-backend.md](stories/story-marianmt-alternative-backend.md)
 
 ## In-Progress Stories

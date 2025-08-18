@@ -47,7 +47,53 @@ Output: "Hangos, elég harc.\nhogy a szomszédja hívta a 911-et."  ❌ Broken g
 ```
 Input:  "- Have you seen my daughter?\n- No, lo siento."
 Output: "- Nem láttad a lányomat?"  ❌ Dialogue lost
-``` Overview
+```
+
+### Cross-Entry Sentence Detection (NEW!)
+
+MarianMT now includes advanced cross-entry sentence detection that identifies sentences spanning multiple subtitle timestamps and translates them as cohesive units while maintaining original timing.
+
+```powershell
+# Enable cross-entry detection (default when using smart strategy)
+python main.py "subtitles/sample.srt" --backend marian --multiline-strategy smart --cross-entry-detection
+
+# Disable cross-entry detection if needed
+python main.py "subtitles/sample.srt" --backend marian --multiline-strategy smart --no-cross-entry-detection
+```
+
+**Cross-Entry Detection Examples:**
+
+**Cross-Entry Sentence (3 timestamps):**
+```
+Input:  Entry 1: "This is now"
+        Entry 2: "an NYPD homicide investigation,"  
+        Entry 3: "so if we collar Hughes, we'll let you know."
+
+Groups:  [1,2,3] detected as single sentence spanning multiple entries
+
+Translation: "Ez most egy rendőrségi gyilkossági nyomozás, szóval ha elkapjuk Hughest, szólunk."
+
+Output: Entry 1: "Ez"
+        Entry 2: "most egy rendőrségi gyilkossági"
+        Entry 3: "nyomozás, szóval ha elkapjuk Hughest, szólunk."
+```
+
+**Dialogue Detection (preserved separately):**
+```
+Input:  Entry 4: "- Have you seen my daughter?"
+        Entry 5: "- No, lo siento."
+
+Groups:  [4] and [5] detected as separate dialogue lines
+
+Output: Entry 4: "- Nem láttad a lányomat?"
+        Entry 5: "- Nem, lo siento."
+```
+
+**Benefits:**
+- ✅ **Better Context**: Translates complete sentences instead of fragments
+- ✅ **Timing Preserved**: Proportionally distributes translation across original entries
+- ✅ **Smart Detection**: Distinguishes between cross-entry sentences and dialogue
+- ✅ **Automatic**: Works seamlessly with smart multiline strategy Overview
 
 MarianMT is a high-performance neural machine translation backend for the Subtitle Assistant project. It provides **40x faster** translation speeds compared to Ollama while maintaining excellent translation quality.
 

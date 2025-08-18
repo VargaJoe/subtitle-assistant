@@ -259,19 +259,22 @@ translation:
 
 #### 🔸 MarianMT Backend (Alternative)
 - **Best for**: Fast, specialized translation without Ollama
-- **Pros**: No external dependencies, optimized for translation, smaller footprint
+- **Pros**: No external dependencies, optimized for translation, smaller footprint, cross-entry sentence detection
 - **Cons**: No multi-model features, limited to translation only
 - **Performance**: Fast and efficient, good quality for EN↔HU
 
 ```bash
-# Use MarianMT backend
-python main.py "subtitles\episode.srt" --backend marian --mode line-by-line
+# Use MarianMT backend with cross-entry detection
+python main.py "subtitles\episode.srt" --backend marian --mode line-by-line --multiline-strategy smart
 
 # Configure in config.yaml
 translation:
   backend: "marian"
   source_language: "en"
   target_language: "hu"
+marian:
+  multiline_strategy: "smart"
+  cross_entry_detection: true
 ```
 
 **Supported Language Pairs (MarianMT):**
