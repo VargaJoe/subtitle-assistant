@@ -208,6 +208,16 @@ python main.py "test_sample.srt" --backend marian --verbose
 - Cross-entry sentence detection is a unique MarianMT feature providing superior translation quality.
 - All processing is done locally - no data sent to external services
 
+## 📜 Model License & Attribution
+
+This project uses the Helsinki-NLP/opus-mt-en-hu model for English↔Hungarian translation via MarianMT.
+
+- **Model:** [Helsinki-NLP/opus-mt-en-hu on Hugging Face](https://huggingface.co/Helsinki-NLP/opus-mt-en-hu)
+- **License:** MIT License (see [model card](https://huggingface.co/Helsinki-NLP/opus-mt-en-hu))
+- **Attribution:** © Tiedemann, Jörg, OPUS-MT, University of Helsinki
+
+Please review the model's license and terms before using in commercial or public projects.
+
 ## 🤝 Contributing
 
 We welcome contributions! Please see our development documentation for implementation guidelines.
