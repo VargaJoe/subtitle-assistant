@@ -164,44 +164,23 @@ class MarianClient:
             return text
         
         try:
-            # Prepare input text with special tokens if needed
-            input_text = self._prepare_input_text(text)
-            
-            # Tokenize input
-            inputs = self.tokenizer(
-                input_text, 
-                return_tensors="pt", 
-                padding=True, 
-                truncation=True,
-                max_length=512
-            )
-            
-            # Move inputs to device
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            # Generate translation
-            with torch.no_grad():
-                translated_tokens = self.model.generate(
-                    **inputs,
-                    max_new_tokens=128,  # Limit new tokens instead of total length
-                    min_length=1,
-                    num_beams=2,  # Reduced beam size for faster, more focused translation
-                    length_penalty=1.0,  # Neutral length penalty
-                    no_repeat_ngram_size=3,  # Prevent repetition of 3-grams
-                    repetition_penalty=1.2,  # Penalize repetition
-                    early_stopping=True,
-                    pad_token_id=self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id
-                )
-            
-            # Decode translation
-            translated_text = self.tokenizer.decode(
-                translated_tokens[0], 
-                skip_special_tokens=True
-            )
-            
-            # Clean up the translation
-            translated_text = self._clean_translation(translated_text)
+            # Handle multi-line text by splitting and translating each line separately
+            lines = text.split('\n')
+            if len(lines) > 1:
+                # Multi-line text: translate each line separately and reassemble
+                translated_lines = []
+                for line in lines:
+                    line = line.strip()
+                    if line:  # Only translate non-empty lines
+                        translated_line = self._translate_single_line(line)
+                        translated_lines.append(translated_line)
+                    else:
+                        translated_lines.append('')  # Preserve empty lines
+                
+                translated_text = '\n'.join(translated_lines)
+            else:
+                # Single line text: translate normally
+                translated_text = self._translate_single_line(text.strip())
             
             if self.config.verbose:
                 self.logger.info(f"MarianMT translated: '{text}' -> '{translated_text}'")
@@ -211,6 +190,60 @@ class MarianClient:
         except Exception as e:
             self.logger.error(f"MarianMT translation failed: {e}")
             raise ValueError(f"Translation failed: {e}")
+    
+    def _translate_single_line(self, text: str) -> str:
+        """
+        Translate a single line of text using MarianMT.
+        
+        Args:
+            text: Single line of text to translate
+            
+        Returns:
+            Translated text
+        """
+        if not text.strip():
+            return text
+        
+        # Prepare input text with special tokens if needed
+        input_text = self._prepare_input_text(text)
+        
+        # Tokenize input
+        inputs = self.tokenizer(
+            input_text, 
+            return_tensors="pt", 
+            padding=True, 
+            truncation=True,
+            max_length=512
+        )
+        
+        # Move inputs to device
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        
+        # Generate translation
+        with torch.no_grad():
+            translated_tokens = self.model.generate(
+                **inputs,
+                max_new_tokens=128,  # Limit new tokens instead of total length
+                min_length=1,
+                num_beams=2,  # Reduced beam size for faster, more focused translation
+                length_penalty=1.0,  # Neutral length penalty
+                no_repeat_ngram_size=3,  # Prevent repetition of 3-grams
+                repetition_penalty=1.2,  # Penalize repetition
+                early_stopping=True,
+                pad_token_id=self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id,
+                eos_token_id=self.tokenizer.eos_token_id
+            )
+        
+        # Decode translation
+        translated_text = self.tokenizer.decode(
+            translated_tokens[0], 
+            skip_special_tokens=True
+        )
+        
+        # Clean up the translation
+        translated_text = self._clean_translation(translated_text)
+        
+        return translated_text
     
     def _prepare_input_text(self, text: str) -> str:
         """Prepare input text for MarianMT (language-specific preprocessing)."""
@@ -290,62 +323,35 @@ class MarianClient:
             raise ConnectionError("MarianMT service is not available")
         
         try:
-            # Filter out empty texts but remember their positions
-            non_empty_texts = []
-            original_indices = []
-            for i, text in enumerate(texts):
-                if text.strip():
-                    non_empty_texts.append(text.strip())
-                    original_indices.append(i)
-            
-            if not non_empty_texts:
-                return texts  # All texts were empty
-            
-            # Prepare inputs for batch processing
-            prepared_texts = [self._prepare_input_text(text) for text in non_empty_texts]
-            
-            # Tokenize all inputs at once
-            inputs = self.tokenizer(
-                prepared_texts,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512
-            )
-            
-            # Move inputs to device
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            # Generate translations for the batch
-            with torch.no_grad():
-                translated_tokens = self.model.generate(
-                    **inputs,
-                    max_new_tokens=128,  # Limit new tokens instead of total length
-                    min_length=1,
-                    num_beams=2,  # Reduced beam size for faster, more focused translation
-                    length_penalty=1.0,  # Neutral length penalty
-                    no_repeat_ngram_size=3,  # Prevent repetition of 3-grams
-                    repetition_penalty=1.2,  # Penalize repetition
-                    early_stopping=True
-                )
-            
-            # Decode all translations
-            translated_texts = []
-            for i in range(len(translated_tokens)):
-                translated_text = self.tokenizer.decode(
-                    translated_tokens[i],
-                    skip_special_tokens=True
-                )
-                translated_texts.append(self._clean_translation(translated_text))
-            
-            # Rebuild the full result list, preserving original order and empty texts
-            result = texts.copy()  # Start with original list (including empty texts)
-            for i, translated_text in enumerate(translated_texts):
-                original_index = original_indices[i]
-                result[original_index] = translated_text
+            # Handle multi-line texts by translating line by line to preserve structure
+            result = []
+            for text in texts:
+                if not text.strip():
+                    result.append(text)
+                    continue
+                
+                # Use the same multi-line handling as translate_text
+                lines = text.split('\n')
+                if len(lines) > 1:
+                    # Multi-line text: translate each line separately and reassemble
+                    translated_lines = []
+                    for line in lines:
+                        line = line.strip()
+                        if line:  # Only translate non-empty lines
+                            translated_line = self._translate_single_line(line)
+                            translated_lines.append(translated_line)
+                        else:
+                            translated_lines.append('')  # Preserve empty lines
+                    
+                    translated_text = '\n'.join(translated_lines)
+                else:
+                    # Single line text: translate normally
+                    translated_text = self._translate_single_line(text.strip())
+                
+                result.append(translated_text)
             
             if self.config.verbose:
-                self.logger.info(f"MarianMT batch translated {len(non_empty_texts)} texts")
+                self.logger.info(f"MarianMT batch translated {len([t for t in texts if t.strip()])} texts")
             
             return result
             
