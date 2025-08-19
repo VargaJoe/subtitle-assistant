@@ -291,8 +291,15 @@ class MarianClient:
         if not text.strip():
             return text
         
+        # Extract and preserve HTML formatting tags
+        html_tags, clean_text = self._extract_html_tags(text)
+        
+        # If no text remains after tag extraction, return original
+        if not clean_text.strip():
+            return text
+        
         # Prepare input text with special tokens if needed
-        input_text = self._prepare_input_text(text)
+        input_text = self._prepare_input_text(clean_text)
         
         # Tokenize input
         inputs = self.tokenizer(
@@ -329,6 +336,10 @@ class MarianClient:
         
         # Clean up the translation
         translated_text = self._clean_translation(translated_text)
+        
+        # Restore HTML formatting tags if formatting preservation is enabled
+        if self.config.preserve_formatting and html_tags:
+            translated_text = self._restore_html_tags(translated_text, html_tags)
         
         return translated_text
     
@@ -377,6 +388,90 @@ class MarianClient:
         # MarianMT typically produces clean output, but we can add cleanup here if needed
         
         return text
+    
+    def _extract_html_tags(self, text: str) -> tuple:
+        """
+        Extract HTML formatting tags from text and return clean text.
+        
+        Args:
+            text: Text with potential HTML tags
+            
+        Returns:
+            Tuple of (tag_positions, clean_text) where tag_positions contains
+            (position, tag) tuples and clean_text has tags removed
+        """
+        import re
+        
+        # Find all HTML tags with their positions
+        tag_pattern = r'<(/?)([bi]|em|strong|u|sub|sup)(\s[^>]*)?>|<(/?)(\w+)(\s[^>]*)?>(?=.*</\5>)'
+        
+        tags = []
+        clean_text = text
+        offset = 0
+        
+        for match in re.finditer(tag_pattern, text):
+            start_pos = match.start() - offset
+            tag = match.group(0)
+            
+            # Store tag position and content
+            tags.append((start_pos, tag))
+            
+            # Remove tag from clean text
+            clean_text = clean_text[:match.start() - offset] + clean_text[match.end() - offset:]
+            offset += len(tag)
+        
+        return tags, clean_text
+    
+    def _restore_html_tags(self, translated_text: str, html_tags: list) -> str:
+        """
+        Restore HTML tags to translated text at appropriate positions.
+        
+        Args:
+            translated_text: Translated text without HTML tags
+            html_tags: List of (original_position, tag) tuples
+            
+        Returns:
+            Translated text with HTML tags restored
+        """
+        if not html_tags:
+            return translated_text
+        
+        # Sort tags by original position
+        html_tags.sort(key=lambda x: x[0])
+        
+        # For simple restoration, we'll try to place tags proportionally
+        # This is a heuristic approach that works well for subtitle formatting
+        
+        result = translated_text
+        
+        # Simple approach: restore opening and closing tags in pairs
+        opening_tags = []
+        for pos, tag in html_tags:
+            if tag.startswith('</'):
+                # Closing tag - find matching opening tag
+                tag_name = tag[2:-1].split()[0]  # Extract tag name
+                for i, (open_pos, open_tag) in enumerate(reversed(opening_tags)):
+                    if open_tag.startswith(f'<{tag_name}'):
+                        # Found matching opening tag
+                        opening_tags.pop(len(opening_tags) - 1 - i)
+                        
+                        # Wrap the entire translated text with these tags
+                        result = open_tag + result + tag
+                        break
+            else:
+                # Opening tag
+                opening_tags.append((pos, tag))
+        
+        # Handle any remaining unmatched opening tags
+        for pos, tag in opening_tags:
+            # Add opening tag at beginning if it's a formatting tag
+            if any(tag_name in tag for tag_name in ['<i', '<b', '<em', '<strong', '<u']):
+                # Try to find appropriate closing tag
+                tag_name = tag.split()[0][1:]  # Extract tag name without <
+                closing_tag = f'</{tag_name}>'
+                result = tag + result + closing_tag
+        
+        return result
     
     def translate_with_retry(self, text: str, context: Optional[str] = None) -> str:
         """
