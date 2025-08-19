@@ -334,9 +334,40 @@ class MarianClient:
     
     def _prepare_input_text(self, text: str) -> str:
         """Prepare input text for MarianMT (language-specific preprocessing)."""
-        # For most MarianMT models, no special preprocessing is needed
-        # But we can add language-specific handling here if needed
-        return text.strip()
+        text = text.strip()
+        
+        # Enhanced preprocessing for better translation of technical terms
+        # Replace technical subtitle terms with more translatable equivalents
+        technical_replacements = {
+            'INDISTINCT': 'unclear',
+            'RADIO CHATTER': 'radio conversation', 
+            'DOOR SLAMS': 'door closing loudly',
+            'ENGINE STARTS': 'engine starting',
+            'ENGINE REVS': 'engine revving',
+            'ALARM SOUNDS': 'alarm sounding',
+            'PHONE RINGS': 'phone ringing',
+            'SIRENS WAIL': 'sirens wailing',
+            'MUSIC PLAYS': 'music playing',
+            'FOOTSTEPS': 'footstep sounds',
+            'GUNSHOTS': 'gun shots',
+            'EXPLOSION': 'explosion sound',
+            'THUNDER RUMBLES': 'thunder rumbling',
+            'WIND HOWLS': 'wind howling',
+            'RAIN PATTERS': 'rain falling',
+            'GLASS BREAKS': 'glass breaking',
+            'CAR HONKS': 'car honking',
+            'CROWD MURMURS': 'crowd murmuring',
+            'APPLAUSE': 'people clapping',
+        }
+        
+        # Apply replacements (case-insensitive)
+        processed_text = text
+        for technical_term, simple_term in technical_replacements.items():
+            # Replace both uppercase and title case versions
+            processed_text = processed_text.replace(technical_term, simple_term)
+            processed_text = processed_text.replace(technical_term.title(), simple_term)
+        
+        return processed_text
     
     def _clean_translation(self, text: str) -> str:
         """Clean up translation response."""
