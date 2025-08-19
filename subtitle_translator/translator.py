@@ -664,6 +664,22 @@ class SubtitleTranslator:
         if not text:
             return True
         
+        # Check for parenthetical content (sound effects, action descriptions)
+        if text.startswith('(') and text.endswith(')'):
+            return True
+        
+        # Check for bracketed content (often used for sound effects)
+        if text.startswith('[') and text.endswith(']'):
+            return True
+        
+        # Check for all-caps descriptions (common for sound effects)
+        # Must be longer than 3 characters to avoid false positives like "I", "OK"
+        if len(text) > 3 and text.isupper() and not any(char.islower() for char in text):
+            # Additional check: contains common sound effect words
+            sound_effect_words = ['CHATTER', 'NOISE', 'MUSIC', 'SOUND', 'VOICE', 'BANG', 'CRASH', 'DOOR', 'PHONE', 'BEEP', 'ALARM', 'RADIO', 'TV', 'TELEVISION']
+            if any(word in text.upper() for word in sound_effect_words):
+                return True
+        
         # Remove dialogue markers for analysis
         clean_text = text
         for marker in ['-', '—', '–', '•']:
@@ -676,9 +692,17 @@ class SubtitleTranslator:
         if any(clean_text.rstrip().endswith(ending) for ending in sentence_endings):
             return True
         
-        # Check for dialogue - if it contains dialogue markers, consider it complete
-        if any(marker in text for marker in ['-', '—', '–']):
+        # Check for dialogue containing multiple speakers (multiple dash markers)
+        # This indicates complete dialogue exchange
+        dash_count = sum(1 for marker in ['-', '—', '–'] if text.count(marker) > 1)
+        if dash_count > 0:
             return True
+        
+        # Check for single dialogue that doesn't end with punctuation - likely incomplete
+        if any(text.startswith(marker) for marker in ['-', '—', '–', '•']):
+            # Single dialogue line without proper sentence ending is likely incomplete
+            if not any(clean_text.rstrip().endswith(ending) for ending in sentence_endings):
+                return False
         
         return False
     
@@ -701,6 +725,19 @@ class SubtitleTranslator:
         
         # If current entry already completes a sentence, next doesn't continue
         if self._entry_completes_sentence(current_entry):
+            return False
+        
+        # If next entry is parenthetical/bracketed content, it doesn't continue
+        if ((next_text.startswith('(') and next_text.endswith(')')) or
+            (next_text.startswith('[') and next_text.endswith(']'))):
+            return False
+        
+        # If next entry starts with dialogue marker, it's likely separate dialogue
+        if any(next_text.startswith(marker) for marker in ['-', '—', '–', '•']):
+            return False
+        
+        # If next entry is all caps (sound effect), it doesn't continue
+        if len(next_text) > 3 and next_text.isupper() and not any(char.islower() for char in next_text):
             return False
         
         # Check if next entry starts with lowercase (likely continuation)
