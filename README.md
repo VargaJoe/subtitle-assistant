@@ -1,10 +1,14 @@
 # Subtitle Assistant
 
-🎬 **AI-powered subtitle translation tool** designed to help hearing-impaired users enjoy movies and TV shows with accurate, context-aware translations.
+🎬 **AI-powered subtitle translation tool** primarily designed for **hearing-impaired users** and others who **need** subtitles to access multimedia content.
 
 ## 🎯 Project Mission
 
-This project bridges communication gaps for hearing-impaired users by providing high-quality subtitle translations with advanced AI processing and comprehensive accessibility features.
+**Primary Goal**: This project serves people who **cannot** watch or understand movies and TV shows without subtitles - primarily the hearing-impaired community who depend on subtitles for accessibility.
+
+**Secondary Goals**: Support those who don't understand the original language, language learners, and users seeking convenience features.
+
+While mainstream perception often views subtitles as a luxury or convenience tool, **our priority is accessibility for those who have no alternative**. We bridge communication gaps by providing high-quality subtitle translations that make entertainment truly accessible to everyone.
 
 ## ⚡ **Recommended: MarianMT Backend (Production Ready)**
 
@@ -108,19 +112,19 @@ python main.py "season1/*.srt" --backend marian --output "translated/{name}.hu.s
 ## 🏗️ Translation Backends
 
 ### 🔥 MarianMT Backend (Recommended & Production-Ready)
-- **Ultimate Solution:** MarianMT is the only backend that consistently produces satisfactory, high-quality translations in all tested scenarios.
-- **Best for:** Production use, fast processing, reliable quality
-- **Pros:** Ultra-fast (40x speedup), cross-entry detection, offline, reliable
-- **Cons:** Limited to translation only (no multi-model pipeline)
+- **Best Available Solution:** MarianMT provides the most reliable translation quality among tested backends, achieving 80-90% satisfactory results for subtitle translation needs.
+- **Known Limitations:** May occasionally struggle with specialized slang/argot, inconsistent formal/informal speech patterns, and rare instances of unclear output.
+- **Best for:** Production use, fast processing, reliable baseline quality
+- **Pros:** Ultra-fast (40x speedup), cross-entry detection, offline, consistent results
+- **Cons:** Limited to translation only (no multi-model pipeline), occasional quality variations
 - **Languages:** EN↔HU (Helsinki-NLP), EN↔DE/FR/ES (Helsinki-NLP)
 - **Model:** Helsinki-NLP/opus-mt-en-hu (484MB, auto-downloaded)
 
 ### 🧪 Ollama Backend (Experimental & Not Recommended)
-- **Warning:** Despite extensive testing and prompt engineering, Ollama models (both translation-only and multi-model pipeline) did NOT produce satisfactory translations yet. Quality was consistently poor and not suitable for production use.
-- **Pros**: Would be if multi-model architecture worked with context analysis, dialogue specialist, technical validation
+- **Warning:** Despite extensive testing and prompt engineering, Ollama models (both translation-only and multi-model pipeline) did NOT produce satisfactory translations. Quality was consistently poor and not suitable for production use.
 - **Best for:** Experimental research, custom AI model exploration
 - **Cons:** Much slower, requires Ollama installation, experimental status, poor translation quality in all tested modes
-- **Features:** Multi-model architecture4-phase pipeline: context → translation → validation → dialogue (but results not satisfactory)
+- **Features:** Multi-model architecture 4-phase pipeline: context → translation → validation → dialogue (but results not satisfactory)
 
 ## 🎛️ Configuration
 
@@ -172,7 +176,7 @@ Advanced 4-phase translation workflow:
 
 | Backend    | Speed per Entry | Features                                 | Quality         | Recommended Use         |
 |------------|----------------|------------------------------------------|-----------------|------------------------|
-| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡ | Cross-entry detection, Smart multiline   | **Ultimate** ⭐⭐⭐⭐⭐ | **Production**         |
+| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡ | Cross-entry detection, Smart multiline   | **Good (80-90%)** ⭐⭐⭐⭐ | **Production**         |
 | Ollama     | 5-6s ⚡         | Multi-model pipeline, Context analysis   | **Unsatisfactory** | Experimental/Not Recommended |
 
 ## 📋 Supported Language Pairs
@@ -203,10 +207,11 @@ python main.py "test_sample.srt" --backend marian --verbose
 
 ## ⚠️ Important Notes
 
-- **MarianMT is the ONLY backend that consistently produces satisfactory translations.**
+- **MarianMT provides the best available translation quality** achieving 80-90% satisfactory results for subtitle needs, though it may occasionally struggle with specialized argot, formal/informal consistency, and rare unclear outputs.
 - Ollama backend (translation-only and multi-model) did NOT yield acceptable results, even after extensive prompt engineering and testing.
 - Cross-entry sentence detection is a unique MarianMT feature providing superior translation quality.
 - All processing is done locally - no data sent to external services
+- **This tool prioritizes accessibility for hearing-impaired users** who depend on subtitles, not convenience features for casual users.
 
 ## 📜 Model License & Attribution
 

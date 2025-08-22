@@ -44,7 +44,7 @@
 - [x] **Final Result**: Despite extensive prompt engineering and testing, Ollama models (both translation-only and multi-model pipeline) did NOT produce satisfactory translations. Quality was consistently poor and not suitable for production use.
 
 ### Story 09 - MarianMT Alternative Translation Backend (✅ COMPLETED & PRODUCTION READY)
-**Status**: Fully implemented with outstanding results - **40x speed improvement** and superior translation quality
+**Status**: Fully implemented with **40x speed improvement** and best available translation quality (80-90% satisfactory)
 - [x] **Core Implementation**:
   - [x] MarianMT backend integration (Helsinki-NLP/opus-mt-en-hu model)
   - [x] Backend selection system (`--backend marian` vs `--backend ollama`)
@@ -68,7 +68,8 @@
   - [x] Methods: `_extract_html_tags()`, `_restore_html_tags()`
 - [x] **Performance & Quality**:
   - [x] 40x speed improvement (0.14s vs 5-6s per entry)
-  - [x] Consistently superior translation quality vs Ollama
+  - [x] Best available translation quality vs Ollama (80-90% satisfactory)
+  - [x] **Known limitations**: Occasional issues with specialized argot, formal/informal consistency, rare unclear output
   - [x] Local processing (no internet required after model download)
   - [x] Memory efficient processing
 - [x] **Documentation & Testing**:
@@ -82,7 +83,7 @@
   - [x] Updated .gitignore patterns for output management
   - [x] Complete README repositioning MarianMT as primary backend
   - [x] Model license documentation and attribution
-- [x] **Final Achievement**: MarianMT is the ONLY backend producing satisfactory, production-ready translations
+- [x] **Final Achievement**: MarianMT provides the best available subtitle translation quality among tested backends
 
 ### Story 09B - HTML Formatting Preservation (✅ COMPLETED)
 **Discovered**: During MarianMT development when HTML tags were being corrupted
