@@ -10,37 +10,30 @@
 
 While mainstream perception often views subtitles as some kind of luxury or convenience tool, **my priority is accessibility for those who have no alternative**. To bridge communication gaps by providing high-quality subtitle translations that make entertainment truly accessible to everyone.
 
-## ⚡ **Recommended: MarianMT Backend (Production Ready)**
+## ⚡ Recommended: MarianMT Backend
 
 **MarianMT** is our **primary recommendation** for production subtitle translation, offering the best balance of speed, quality, and reliability.
 
-### 🚀 Quick Start with MarianMT
-
-```bash
-# Single file translation
-python main.py "movie.srt" --backend marian
-
-# With cross-entry sentence detection (recommended)
-python main.py "movie.srt" --backend marian --multiline-strategy smart
-
-# Batch processing multiple files
-python main.py "subtitles/*.srt" --backend marian --verbose
-
-# Different multiline strategies
-python main.py "movie.srt" --backend marian --multiline-strategy smart      # Intelligent detection
-python main.py "movie.srt" --backend marian --multiline-strategy preserve_lines  # Keep line breaks
-python main.py "movie.srt" --backend marian --multiline-strategy join_all  # Join as sentences
-```
-
-### 🎯 MarianMT Key Features
-
+### Key Features
 - ⚡ **Ultra-Fast**: 40x faster than Ollama (0.14s vs 5-6s per entry)
 - 🧠 **Intelligent Processing**: Cross-entry sentence detection spanning multiple timestamps
-- 🎭 **Smart Detection**: Automatically distinguishes dialogue from cross-entry sentences  
+- 🎭 **Smart Detection**: Automatically distinguishes dialogue from cross-entry sentences
 - ⏱️ **Timing Preserved**: Maintains original subtitle timing with proportional text distribution
 - 🖥️ **Local Processing**: No internet required, works completely offline
 - 💾 **Auto-Model Management**: Downloads and caches models automatically
 - 🔄 **GPU Acceleration**: CUDA support with CPU fallback
+
+### Quick Start
+```bash
+# Single file translation
+python main.py "movie.srt" --backend marian
+
+# Batch processing multiple files
+python main.py "subtitles/*.srt" --backend marian --verbose
+
+# Smart multiline with cross-entry detection
+python main.py "movie.srt" --backend marian --multiline-strategy smart
+```
 
 ## 🛠️ Installation & Setup
 
@@ -48,110 +41,35 @@ python main.py "movie.srt" --backend marian --multiline-strategy join_all  # Joi
 - Python 3.8+
 - For MarianMT: PyTorch and Transformers
 
-### Setup for MarianMT (Recommended)
+### Setup
 ```bash
 # Clone repository
 git clone https://github.com/VargaJoe/subtitle-assistant.git
 cd subtitle-assistant
 
-# Install dependencies (including MarianMT)
+# Install dependencies
 pip install -r requirements.txt
 
 # Test installation
 python main.py --help
 ```
 
-### Alternative: Ollama Backend (Advanced Users for experimental use)
-```bash
-# Install Ollama (see ollama.ai)
-# Pull a translation model
-ollama pull gemma3:latest
-
-# Configure for Ollama backend in config.yaml
-translation:
-  backend: "ollama"
-```
-
-## 📖 Usage Examples
-
-### Basic Translation
-```bash
-# Simple translation (EN → HU)
-python main.py "episode.srt"
-
-# Specify output file
-python main.py "episode.srt" --output "episode.hu.srt"
-
-# Verbose output
-python main.py "episode.srt" --verbose
-```
-
-### Advanced MarianMT Features
-```bash
-# Smart multiline with cross-entry detection (recommended)
-python main.py "episode.srt" --backend marian --multiline-strategy smart --cross-entry-detection
-
-# Disable cross-entry detection if needed  
-python main.py "episode.srt" --backend marian --no-cross-entry-detection
-
-# Different translation modes
-python main.py "episode.srt" --backend marian --mode line-by-line  # Safest, resumable
-python main.py "episode.srt" --backend marian --mode batch         # Faster processing  
-python main.py "episode.srt" --backend marian --mode whole-file    # Fastest for small files
-```
-
-### Batch Processing
-```bash
-# Process all SRT files in a directory
-python main.py "season1/*.srt" --backend marian --verbose
-
-# Process with custom output pattern
-python main.py "season1/*.srt" --backend marian --output "translated/{name}.hu.srt"
-```
-
 ## 🏗️ Translation Backends
 
-### 🔥 MarianMT Backend (Recommended & Production-Ready)
-- **Best Available Solution:** MarianMT provides the most reliable translation quality among tested backends, achieving 80-90% satisfactory results for subtitle translation needs.
-- **Known Limitations:** May occasionally struggle with specialized slang/argot, inconsistent formal/informal speech patterns, and rare instances of unclear output.
-- **Best for:** Production use, fast processing, reliable baseline quality
-- **Pros:** Ultra-fast (40x speedup), cross-entry detection, offline, consistent results
-- **Cons:** Limited to translation only (no multi-model pipeline), occasional quality variations
-- **Languages:** EN↔HU (Helsinki-NLP), EN↔DE/FR/ES (Helsinki-NLP)
-- **Model:** Helsinki-NLP/opus-mt-en-hu (484MB, auto-downloaded)
+### MarianMT Backend (Recommended)
+- **Best Available Solution:** Reliable translation quality (~80-90% satisfactory results).
+- **Known Limitations:** May struggle with slang, formal/informal consistency, and rare unclear outputs.
+- **Languages:** EN↔HU (Helsinki-NLP).
+- **Model:** Helsinki-NLP/opus-mt-en-hu (484MB, auto-downloaded).
 
-### 🧪 Ollama Backend (Experimental & Not Recommended)
-- **Warning:** Despite extensive testing and prompt engineering, Ollama models (both translation-only and multi-model pipeline) did NOT produce satisfactory translations. Quality was consistently poor and not suitable for production use.
-- **Best for:** Experimental research, custom AI model exploration
-- **Cons:** Much slower, requires Ollama installation, experimental status, poor translation quality in all tested modes
-- **Features:** Multi-model architecture 4-phase pipeline: context → translation → validation → dialogue (but results not satisfactory)
-
-## 🎛️ Configuration
-
-Configuration is handled via `config.yaml` with CLI overrides:
-
-```yaml
-# MarianMT Configuration (Recommended)
-translation:
-  backend: "marian"
-  source_language: "en"
-  target_language: "hu"
-
-marian:
-  multiline_strategy: "smart"      # Intelligent detection
-  cross_entry_detection: true     # Enable cross-entry sentences
-  max_new_tokens: 128
-  device: "auto"                   # "auto", "cuda", "cpu"
-
-processing:
-  translation_mode: "line-by-line"
-  resume_enabled: true
-  verbose: true
-```
+### Ollama Backend (Experimental)
+- **Warning:** Extensive testing showed poor translation quality, not suitable for production.
+- **Best for:** Experimental research, custom AI model exploration.
+- **Cons:** Slower, requires installation, experimental status.
 
 ## 📚 Advanced Features
 
-### Cross-Entry Sentence Detection (MarianMT)
+### Cross-Entry Sentence Detection
 Automatically detects sentences spanning multiple subtitle timestamps:
 
 ```
@@ -164,13 +82,6 @@ Result: Translates as unified sentence while preserving original timing
         Entry 2: "most egy rendőrségi gyilkossági"
         Entry 3: "nyomozás, szóval ha elkapjuk Hughest, szólunk."
 ```
-
-### Multi-Model Pipeline (Ollama)
-Advanced 4-phase translation workflow:
-1. **Context Analysis** - Story understanding and character profiling
-2. **Translation** - Context-aware primary translation
-3. **Technical Validation** - Grammar and quality scoring  
-4. **Dialogue Specialist** - Character voice consistency
 
 ## 🔍 Performance Comparison
 
@@ -195,7 +106,6 @@ Advanced 4-phase translation workflow:
 - **[Traditional Translation Guide](docs/traditional-translation-guide.md)** - Basic translation modes
 
 ## 🧪 Testing
-
 ```bash
 # Run cross-entry detection tests
 python tests/test_cross_entry_detection.py
@@ -207,9 +117,8 @@ python main.py "test_sample.srt" --backend marian --verbose
 ## ⚠️ Important Notes
 
 - **MarianMT provides the best available translation quality** achieving 80-90% satisfactory results for subtitle needs, though it may occasionally struggle with specialized argot, formal/informal consistency, and rare unclear outputs.
-- Ollama backend (translation-only and multi-model) did NOT yield acceptable results, even after extensive prompt engineering and testing.
 - Cross-entry sentence detection is a unique MarianMT feature providing superior translation quality.
-- All processing is done locally - no data sent to external services
+- All processing is done locally - no data sent to external services.
 - **This tool prioritizes accessibility for hearing-impaired users** who depend on subtitles, not convenience features for casual users.
 
 ## 📜 Model License & Attribution
