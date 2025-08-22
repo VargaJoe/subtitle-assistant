@@ -1,259 +1,144 @@
 # Subtitle Assistant
 
-A Python-based AI-powered subtitle translation tool designed to help hearing-impaired users enjoy movies and TV shows with accurate, context-aware translations.
+🎬 **AI-powered subtitle translation tool** primarily designed for **hearing-impaired users** and others who **need** subtitles to access multimedia content.
 
 ## 🎯 Project Mission
 
-This project aims to bridge communication gaps for hearing-impaired users by providing high-quality subtitle translations and, in the future, comprehensive accessibility features for multimedia content.
+**Primary Goal**: This project serves people who **cannot** watch or understand movies and TV shows without subtitles - primarily the hearing-impaired community who depend on subtitles for accessibility.
 
-## 🚀 Features
+**Secondary Goals**: Support those who don't understand the original language and language learners.
 
-### ✅ **Implemented (Story 01)**
-- **SRT Parser** - Robust parsing with timing preservation
-- **AI Translation** - Context-aware translation using Ollama
-- **YAML Configuration** - Flexible configuration system
-- **CLI Interface** - Complete command-line interface
-- **Multiple Models** - Support for various Ollama models
-- **Formality Control** - Auto-detect, formal, or informal translation styles
-- **Error Handling** - Retry logic and fallback models
-- **Real-time Progress** - Translation progress indicators
+While mainstream perception often views subtitles as some kind of luxury or convenience tool, **my priority is accessibility for those who have no alternative**. To bridge communication gaps by providing high-quality subtitle translations that make entertainment truly accessible to everyone.
 
-### 🚧 **Planned Features**
-- **Enhanced Translation Quality** - Advanced context handling and consistency
-- **Batch Processing** - Automated directory processing
-- **Multi-Language Support** - Support for multiple language pairs
-- **GUI Application** - User-friendly drag-and-drop interface
-- **Accessibility Features** - Sound effects, music descriptions, speaker identification
-- **Audio Processing** - Auto-subtitle generation from video/audio files
+## ⚡ Recommended: MarianMT Backend
 
-## 🛠️ Technology Stack
+**MarianMT** is our **primary recommendation** for production subtitle translation, offering the best balance of speed, quality, and reliability.
 
-- **Python 3.8+** - Core language
-- **Ollama** - Local AI translation engine
-- **PyYAML** - Configuration management
-- **Requests** - HTTP client for Ollama API
+### Key Features
+- ⚡ **Ultra-Fast**: 40x faster than Ollama (0.14s vs 5-6s per entry)
+- 🧠 **Intelligent Processing**: Cross-entry sentence detection spanning multiple timestamps
+- 🎭 **Smart Detection**: Automatically distinguishes dialogue from cross-entry sentences
+- ⏱️ **Timing Preserved**: Maintains original subtitle timing with proportional text distribution
+- 🖥️ **Local Processing**: No internet required, works completely offline
+- 💾 **Auto-Model Management**: Downloads and caches models automatically
+- 🔄 **GPU Acceleration**: CUDA support with CPU fallback
 
-## 📦 Installation
+### Quick Start
+```bash
+# Single file translation
+python main.py "movie.srt" --backend marian
+
+# Batch processing multiple files
+python main.py "subtitles/*.srt" --backend marian --verbose
+
+# Smart multiline with cross-entry detection
+python main.py "movie.srt" --backend marian --multiline-strategy smart
+```
+
+## 🛠️ Installation & Setup
 
 ### Prerequisites
-1. **Python 3.8+** installed
-2. **Ollama** running locally with a translation model
+- Python 3.8+
+- For MarianMT: PyTorch and Transformers
 
 ### Setup
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/VargaJoe/subtitle-assistant.git
 cd subtitle-assistant
-
-# Create virtual environment
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # Linux/Mac
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Install Ollama model (recommended for Hungarian)
-ollama pull jobautomation/OpenEuroLLM-Hungarian:latest
+# Test installation
+python main.py --help
 ```
 
-## 🚀 Usage
+## 🏗️ Translation Backends
 
-### Basic Translation
+### MarianMT Backend (Recommended)
+- **Best Available Solution:** Reliable translation quality (~80-90% satisfactory results).
+- **Known Limitations:** May struggle with slang, formal/informal consistency, and rare unclear outputs.
+- **Languages:** EN↔HU (Helsinki-NLP).
+- **Model:** Helsinki-NLP/opus-mt-en-hu (484MB, auto-downloaded).
 
-```bash
-# Translate single file
-python main.py input.srt
+### Ollama Backend (Experimental)
+- **Warning:** Extensive testing showed poor translation quality, not suitable for production.
+- **Best for:** Experimental research, custom AI model exploration.
+- **Cons:** Slower, requires installation, experimental status.
 
-# Specify output file
-python main.py input.srt -o output.srt
+## 📚 Advanced Features
 
-# Use specific model and formality
-python main.py input.srt --model "jobautomation/OpenEuroLLM-Hungarian:latest" --formality informal
-
-# Increase timeout for large models
-python main.py input.srt --timeout 300 --verbose
-```
-
-### Batch Processing
-
-```bash
-# Translate all SRT files in a directory
-python main.py "subtitles/*.srt" --batch
-
-# Process directory with output to specific folder
-python main.py subtitles/ --batch -o output/
-```
-
-### Configuration
-
-Create or edit `config.yaml` for persistent settings:
-
-```yaml
-translation:
-  source_language: en
-  target_language: hu
-  model: "jobautomation/OpenEuroLLM-Hungarian:latest"
-  context_window: 3
-  tone:
-    formality: auto  # formal, informal, auto
-    style: natural   # natural, literal, creative
-
-ollama:
-  host: localhost
-  port: 11434
-  timeout: 300
-
-output:
-  suffix: "{target_lang}"
-  encoding: utf-8
-```
-
-### Command Line Options
-
-| Option | Description | Example |
-|--------|-------------|---------|
-| `--config`, `-c` | Configuration file | `--config my-config.yaml` |
-| `--model` | Ollama model name | `--model llama3.2` |
-| `--source` | Source language | `--source en` |
-| `--target` | Target language | `--target hu` |
-| `--formality` | Translation style | `--formality informal` |
-| `--timeout` | Request timeout (seconds) | `--timeout 300` |
-| `--verbose`, `-v` | Detailed output | `--verbose` |
-| `--batch` | Batch processing mode | `--batch` |
-| `--validate` | Validate setup only | `--validate` |
-
-## 📁 Output Structure
-
-### Single File Translation
-```
-input.srt → input.hu.srt  (same directory)
-```
-
-### Batch Translation
-```
-subtitles/
-  ├── episode1.srt
-  ├── episode2.srt
-  └── episode3.srt
-
-output/
-  ├── episode1.hu.srt
-  ├── episode2.hu.srt
-  └── episode3.hu.srt
-```
-
-## 🏗️ Project Structure
+### Cross-Entry Sentence Detection
+Automatically detects sentences spanning multiple subtitle timestamps:
 
 ```
-subtitle-assistant/
-├── main.py                    # CLI entry point
-├── config.yaml               # Configuration file
-├── requirements.txt           # Python dependencies
-├── subtitle_translator/       # Core modules
-│   ├── config.py             # Configuration management
-│   ├── srt_parser.py         # SRT file handling
-│   ├── ollama_client.py      # AI translation client
-│   └── translator.py         # Main translation logic
-├── docs/                     # Documentation
-│   ├── stories/             # User stories
-│   └── implementation-tasks.md
-├── subtitles/               # Sample subtitle files
-└── output/                  # Translated files (created)
-```
-- ⏳ Core translation functionality
+Input:  Entry 1: "This is now"
+        Entry 2: "an NYPD homicide investigation,"  
+        Entry 3: "so if we collar Hughes, we'll let you know."
 
-See [Implementation Tasks](docs/implementation-tasks.md) for detailed progress tracking.
+Result: Translates as unified sentence while preserving original timing
+        Entry 1: "Ez"
+        Entry 2: "most egy rendőrségi gyilkossági"
+        Entry 3: "nyomozás, szóval ha elkapjuk Hughest, szólunk."
+```
+
+## 🔍 Performance Comparison
+
+| Backend    | Speed per Entry | Features                                 | Quality         | Recommended Use         |
+|------------|----------------|------------------------------------------|-----------------|------------------------|
+| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡ | Cross-entry detection, Smart multiline   | **Good (80-90%)** ⭐⭐⭐⭐ | **Production**         |
+| Ollama     | 5-6s ⚡         | Multi-model pipeline, Context analysis   | **Unsatisfactory** | Experimental/Not Recommended |
+
+## 📋 Supported Language Pairs
+
+### MarianMT (Helsinki-NLP Models)
+- **Primary**: English ↔ Hungarian ✅ (Fully tested)
+
+### Ollama
+- Any language pair supported by the selected model
+
+## 📖 Documentation
+
+- **[MarianMT User Guide](docs/MARIANMT_USER_GUIDE.md)** - Complete MarianMT setup and usage ⭐ **Recommended**
+- **[Multi-Model Architecture Guide](docs/multi-model-guide.md)** - Advanced Ollama pipeline documentation
+- **[Implementation Tasks](docs/implementation-tasks.md)** - Development progress tracking
+- **[Traditional Translation Guide](docs/traditional-translation-guide.md)** - Basic translation modes
 
 ## 🧪 Testing
-
-### Validate Setup
 ```bash
-# Check if everything is configured correctly
-python main.py --validate
+# Run cross-entry detection tests
+python tests/test_cross_entry_detection.py
+
+# Test translation with sample file
+python main.py "test_sample.srt" --backend marian --verbose
 ```
 
-### Test with Sample Files
-```bash
-# Quick test with small sample
-python main.py test_sample.srt --verbose
+## ⚠️ Important Notes
 
-# Test with real Magnum P.I. dialogue
-python main.py magnum_sample.srt --model "jobautomation/OpenEuroLLM-Hungarian:latest" --formality auto
-```
+- **MarianMT provides the best available translation quality** achieving 80-90% satisfactory results for subtitle needs, though it may occasionally struggle with specialized argot, formal/informal consistency, and rare unclear outputs.
+- Cross-entry sentence detection is a unique MarianMT feature providing superior translation quality.
+- All processing is done locally - no data sent to external services.
+- **This tool prioritizes accessibility for hearing-impaired users** who depend on subtitles, not convenience features for casual users.
 
-## ⚡ Performance
+## 📜 Model License & Attribution
 
-- **Translation Speed**: ~13-18 seconds per subtitle entry (depends on model)
-- **Context Awareness**: Uses surrounding subtitles for better translation
-- **Memory Efficient**: Processes entries sequentially
-- **Error Recovery**: Automatic retry and fallback to alternative models
+This project uses the Helsinki-NLP/opus-mt-en-hu model for English↔Hungarian translation via MarianMT.
 
-## 🎨 Translation Quality
+- **Model:** [Helsinki-NLP/opus-mt-en-hu on Hugging Face](https://huggingface.co/Helsinki-NLP/opus-mt-en-hu)
+- **License:** MIT License (see [model card](https://huggingface.co/Helsinki-NLP/opus-mt-en-hu))
+- **Attribution:** © Tiedemann, Jörg, OPUS-MT, University of Helsinki
 
-### Hungarian-Specific Features
-- **Formality Detection**: Automatically detects formal vs informal context
-- **Natural Expressions**: Prioritizes natural Hungarian over literal translation
-- **Proper Names**: Preserves English character names
-- **Contractions**: Handles English contractions naturally
-
-### Example Translations
-```
-English: "Hello, how are you today?"
-Hungarian (informal): "Szia, hogy vagy ma?"
-Hungarian (formal): "Jó napot kívánok, hogy érzi magát?"
-
-English: "Excuse me, buddy. You speak English?"
-Hungarian: "Bocs, fiú. Beszél angolul?"
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Ollama Connection Failed**
-```bash
-# Start Ollama service
-ollama serve
-
-# Check if model is available
-ollama list
-```
-
-**Translation Timeouts**
-```bash
-# Increase timeout for large models
-python main.py input.srt --timeout 600
-```
-
-**Memory Issues with Large Files**
-- Process files in smaller batches
-- Reduce context window in config
-- Use faster models for initial processing
+Please review the model's license and terms before using in commercial or public projects.
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+We welcome contributions! Please see our development documentation for implementation guidelines.
 
-## 📜 License
+## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [Ollama](https://ollama.ai/) - Local AI model execution
-- [OpenEuroLLM](https://huggingface.co/jobautomation/OpenEuroLLM-Hungarian) - Hungarian language model
-- Hearing-impaired community feedback and testing
-
-## 📬 Contact
-
-- **Project Repository**: [GitHub](https://github.com/VargaJoe/subtitle-assistant)
-- **Issues & Bug Reports**: [GitHub Issues](https://github.com/VargaJoe/subtitle-assistant/issues)
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-*Built with ❤️ for the hearing-impaired community*
+**🎬 Enjoy your translated subtitles with MarianMT's lightning-fast processing and intelligent cross-entry detection!**

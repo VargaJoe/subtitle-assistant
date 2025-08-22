@@ -120,6 +120,11 @@ class SRTParser:
         """
         entries = []
         
+        # Remove BOM if present
+        if content.startswith('\ufeff'):
+            content = content[1:]
+            self.logger.info("Removed BOM from SRT content")
+        
         # Split content into blocks (separated by double newlines)
         blocks = re.split(r'\n\s*\n', content.strip())
         
@@ -149,9 +154,14 @@ class SRTParser:
         
         # Parse index
         try:
-            index = int(lines[0].strip())
+            index_str = lines[0].strip()
+            # Remove BOM if present on first line
+            if index_str.startswith('\ufeff'):
+                index_str = index_str[1:]
+                self.logger.info(f"Removed BOM from subtitle index at line: {lines[0]}")
+            index = int(index_str)
         except ValueError:
-            raise ValueError(f"Invalid subtitle index: {lines[0]}")
+            raise ValueError(f"Invalid subtitle index: {lines[0]} (check for BOM or invalid characters)")
         
         # Parse timestamp
         time_match = self.time_pattern.match(lines[1].strip())

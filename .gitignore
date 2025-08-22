@@ -148,6 +148,7 @@ Thumbs.db
 # Translation outputs
 *_translated.srt
 *.hu.srt
-output/
+output*/
 temp/
-subtitles/
+subtitles*/
+*sample*

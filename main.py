@@ -30,6 +30,7 @@ Examples:
     
     parser.add_argument(
         "input",
+        nargs="?",
         help="Input SRT file(s) to translate"
     )
     
@@ -59,6 +60,30 @@ Examples:
     )
     
     parser.add_argument(
+        "--backend",
+        choices=["ollama", "marian"],
+        help="Translation backend: ollama (default) or marian (MarianMT)"
+    )
+    
+    parser.add_argument(
+        "--multiline-strategy",
+        choices=["smart", "preserve_lines", "join_all"],
+        help="MarianMT multiline handling: smart (detect sentences vs dialogue), preserve_lines (keep line breaks), join_all (join as single sentence)"
+    )
+    
+    parser.add_argument(
+        "--cross-entry-detection",
+        action="store_true",
+        help="Enable cross-entry sentence detection for MarianMT (default: enabled)"
+    )
+    
+    parser.add_argument(
+        "--no-cross-entry-detection",
+        action="store_true",
+        help="Disable cross-entry sentence detection for MarianMT"
+    )
+    
+    parser.add_argument(
         "--formality",
         choices=["formal", "informal", "auto"],
         help="Translation formality level (overrides config)"
@@ -84,8 +109,8 @@ Examples:
     
     parser.add_argument(
         "--mode",
-        choices=["line-by-line", "batch", "whole-file"],
-        help="Translation mode: line-by-line (default), batch (faster), or whole-file (experimental)"
+        choices=["line-by-line", "batch", "whole-file", "multi-model"],
+        help="Translation mode: line-by-line (default), batch (faster), whole-file (experimental), or multi-model (4-stage AI pipeline)"
     )
     
     parser.add_argument(
@@ -118,6 +143,20 @@ Examples:
         help="Force restart, ignoring existing progress"
     )
 
+    # Multi-model step selection arguments
+    parser.add_argument(
+        "--steps",
+        nargs="+",
+        choices=["context", "translation", "validation", "dialogue"],
+        help="Select which multi-model steps to run (default: all). Example: --steps translation validation"
+    )
+    
+    parser.add_argument(
+        "--only-translation",
+        action="store_true", 
+        help="Run only translation step (Step 02)"
+    )
+
     args = parser.parse_args()
     
     # Load configuration
@@ -141,6 +180,14 @@ Examples:
         config.target_lang = args.target
     if args.model:
         config.model = args.model
+    if args.backend:
+        config.translation_backend = args.backend
+    if hasattr(args, 'multiline_strategy') and args.multiline_strategy:
+        config.marian.multiline_strategy = args.multiline_strategy
+    if hasattr(args, 'cross_entry_detection') and args.cross_entry_detection:
+        config.marian.cross_entry_detection = True
+    if hasattr(args, 'no_cross_entry_detection') and args.no_cross_entry_detection:
+        config.marian.cross_entry_detection = False
     if args.formality:
         config.tone.formality = args.formality
     if args.mode:
@@ -153,6 +200,22 @@ Examples:
         config.reassess_overlaps = False
     if args.verbose:
         config.verbose = True
+    
+    # Handle multi-model step selection
+    if args.only_translation:
+        # Run only translation step
+        config.multi_model.pipeline.run_context_analysis = False
+        config.multi_model.pipeline.run_translation = True
+        config.multi_model.pipeline.run_validation = False
+        config.multi_model.pipeline.run_dialogue_refinement = False
+        print("🎯 Running only Step 02: Translation")
+    elif args.steps:
+        # Custom step selection
+        config.multi_model.pipeline.run_context_analysis = "context" in args.steps
+        config.multi_model.pipeline.run_translation = "translation" in args.steps
+        config.multi_model.pipeline.run_validation = "validation" in args.steps
+        config.multi_model.pipeline.run_dialogue_refinement = "dialogue" in args.steps
+        print(f"🎯 Running selected steps: {', '.join(args.steps)}")
     
     # Initialize translator
     try:
@@ -169,7 +232,11 @@ Examples:
         else:
             print("❌ Translator setup has issues.")
             return 1
-    
+
+    # Check if input is provided when not validating
+    if not args.input:
+        parser.error("Input file is required unless using --validate")
+
     # Determine resume behavior
     resume_enabled = True  # Default to auto-detect
     if args.restart:
