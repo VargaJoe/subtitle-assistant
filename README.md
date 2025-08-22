@@ -6,9 +6,9 @@
 
 **Primary Goal**: This project serves people who **cannot** watch or understand movies and TV shows without subtitles - primarily the hearing-impaired community who depend on subtitles for accessibility.
 
-**Secondary Goals**: Support those who don't understand the original language, language learners, and users seeking convenience features.
+**Secondary Goals**: Support those who don't understand the original language and language learners.
 
-While mainstream perception often views subtitles as a luxury or convenience tool, **our priority is accessibility for those who have no alternative**. We bridge communication gaps by providing high-quality subtitle translations that make entertainment truly accessible to everyone.
+While mainstream perception often views subtitles as some kind of luxury or convenience tool, **my priority is accessibility for those who have no alternative**. To bridge communication gaps by providing high-quality subtitle translations that make entertainment truly accessible to everyone.
 
 ## ⚡ **Recommended: MarianMT Backend (Production Ready)**
 
@@ -61,7 +61,7 @@ pip install -r requirements.txt
 python main.py --help
 ```
 
-### Alternative: Ollama Backend (Advanced Users)
+### Alternative: Ollama Backend (Advanced Users for experimental use)
 ```bash
 # Install Ollama (see ollama.ai)
 # Pull a translation model
@@ -183,7 +183,6 @@ Advanced 4-phase translation workflow:
 
 ### MarianMT (Helsinki-NLP Models)
 - **Primary**: English ↔ Hungarian ✅ (Fully tested)
-- **Additional**: English ↔ German, French, Spanish
 
 ### Ollama
 - Any language pair supported by the selected model
