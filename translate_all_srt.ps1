@@ -14,6 +14,12 @@
 .PARAMETER OutputPath
     Path to the output folder. Defaults to "output"
 
+.PARAMETER SourceLanguage
+    Source language code (e.g., 'en' for English). Defaults to 'en'.
+
+.PARAMETER TargetLanguage
+    Target language code (e.g., 'hu' for Hungarian). Defaults to 'hu'.
+
 .PARAMETER Verbose
     Enable verbose output for detailed translation progress
 
@@ -36,8 +42,13 @@
 param(
     [string]$SubtitlesPath = "subtitles",
     [string]$OutputPath = "output", 
+    [string]$SourceLanguage = "en",  # Default source language
+    [string]$TargetLanguage = "hu",  # Default target language
+    [string]$Model = $null,           # Optional MarianMT model override
     [switch]$Verbose,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$NoCrossEntryDetection,   # New: disable cross-entry detection
+    [switch]$NoSmartMultiline         # New: disable smart multiline strategy
 )
 
 # Colors for output
@@ -117,39 +128,58 @@ $errorCount = 0
 $startTime = Get-Date
 
 foreach ($file in $srtFiles) {
-    $fileNumber = $srtFiles.IndexOf($file) + 1
+    $fileNumber = [array]::IndexOf($srtFiles, $file) + 1
     $baseName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
     $outputFile = Join-Path $OutputPath "$baseName.hun.srt"
-    
+
     Write-Host "${Blue}[$fileNumber/$($srtFiles.Count)] Processing: $($file.Name)${Reset}" -ForegroundColor Blue
-    
+
     # Build the command arguments
     $arguments = @(
         "main.py",
         "`"$($file.FullName)`"",
         "--backend", "marian",
         "--output", "`"$outputFile`"",
-        "--multiline-strategy", "smart",
-        "--cross-entry-detection"
+        "--source", "$SourceLanguage",
+        "--target", "$TargetLanguage"
     )
-    
+
+    if ($Model) {
+        $arguments += "--model"
+        $arguments += "$Model"
+    }
+
+    if ($NoSmartMultiline) {
+        $arguments += "--multiline-strategy"
+        $arguments += "preserve_lines"
+    } else {
+        $arguments += "--multiline-strategy"
+        $arguments += "smart"
+    }
+
+    if ($NoCrossEntryDetection) {
+        $arguments += "--no-cross-entry-detection"
+    } else {
+        $arguments += "--cross-entry-detection"
+    }
+
     if ($Verbose) {
         $arguments += "--verbose"
     }
-    
+
     # Execute translation
     try {
         $startFileTime = Get-Date
-        
+
         if ($Verbose) {
             Write-Host "  Command: python $($arguments -join ' ')" -ForegroundColor DarkGray
         }
-        
+
         $process = Start-Process -FilePath "python" -ArgumentList $arguments -Wait -PassThru -NoNewWindow
-        
-        $endFileTime = Get-Date
+
+        $endFileTime = Get-Date  # Ensure $endTime is set correctly
         $fileElapsed = ($endFileTime - $startFileTime).TotalSeconds
-        
+
         if ($process.ExitCode -eq 0) {
             Write-Host "  ${Green}✅ Success${Reset} (${fileElapsed:F1}s)" -ForegroundColor Green
             $successCount++
@@ -162,12 +192,12 @@ foreach ($file in $srtFiles) {
         Write-Host "  ${Red}❌ Error: $($_.Exception.Message)${Reset}" -ForegroundColor Red
         $errorCount++
     }
-    
+
     Write-Host ""
 }
 
 # Final summary
-$endTime = Get-Date
+$endTime = Get-Date  # Ensure $endTime is set before calculating total elapsed time
 $totalElapsed = ($endTime - $startTime).TotalMinutes
 
 Write-Host "===============================================" -ForegroundColor Blue

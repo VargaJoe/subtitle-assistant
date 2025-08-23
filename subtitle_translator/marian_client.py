@@ -75,6 +75,24 @@ class MarianClient:
             ("fr", "en"): "Helsinki-NLP/opus-mt-fr-en",
             ("en", "es"): "Helsinki-NLP/opus-mt-en-es",
             ("es", "en"): "Helsinki-NLP/opus-mt-es-en",
+            # Hungarian as target from common movie languages
+            ("de", "hu"): "Helsinki-NLP/opus-mt-de-hu",
+            ("fr", "hu"): "Helsinki-NLP/opus-mt-fr-hu",
+            ("es", "hu"): "Helsinki-NLP/opus-mt-es-hu",
+            ("ru", "hu"): "Helsinki-NLP/opus-mt-ru-hu",
+            ("uk", "hu"): "Helsinki-NLP/opus-mt-uk-hu",
+            ("zh", "hu"): "Helsinki-NLP/opus-mt-zh-hu",
+            ("ja", "hu"): "Helsinki-NLP/opus-mt-ja-hu",
+            ("ko", "hu"): "Helsinki-NLP/opus-mt-ko-hu",
+            # Hungarian as source to those languages
+            ("hu", "de"): "Helsinki-NLP/opus-mt-hu-de",
+            ("hu", "fr"): "Helsinki-NLP/opus-mt-hu-fr",
+            ("hu", "es"): "Helsinki-NLP/opus-mt-hu-es",
+            ("hu", "ru"): "Helsinki-NLP/opus-mt-hu-ru",
+            ("hu", "uk"): "Helsinki-NLP/opus-mt-hu-uk",
+            ("hu", "zh"): "Helsinki-NLP/opus-mt-hu-zh",
+            ("hu", "ja"): "Helsinki-NLP/opus-mt-hu-ja",
+            ("hu", "ko"): "Helsinki-NLP/opus-mt-hu-ko",
         }
         
         lang_pair = (source_lang, target_lang)

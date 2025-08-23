@@ -14,6 +14,8 @@ Bár a szélesebb közönség gyakran a feliratokat egyfajta luxusnak vagy kény
 
 **MarianMT** jelenleg az elsődlegesen ajánlott backend a feliratfordításhoz, mert megfelelő egyensúlyt kínál sebesség és minőség között.
 
+> **Megjegyzés:** Csak az angol→magyar (EN→HU) fordítás lett teljes körűen tesztelve. A MarianMT sok más nyelvpárt is támogat (pl. német→magyar, japán→magyar stb.), de ezek minősége nem ismert, eltérő lehet. A legtöbb nyelvpárhoz elegendő a `--source` és `--target` paramétereket megadni, a modell automatikusan kiválasztásra kerül. A `--model` paraméter csak egyedi vagy nem szabványos modellekhez szükséges.
+
 ### Főbb jellemzők
 - ⚡ **Nagyon gyors**: 40x gyorsabb, mint az Ollama (0.14s vs 5-6s bejegyzésenként)
 - 🧠 **Intelligens feldolgozás**: Cross-entry mondatfelismerés több időbélyegen átívelő mondatokhoz
@@ -25,15 +27,17 @@ Bár a szélesebb közönség gyakran a feliratokat egyfajta luxusnak vagy kény
 
 ### Gyors kezdés
 ```bash
-# Egyetlen felirat file fordítása
-python main.py "movie.srt" --backend marian
+# Angolról magyarra (tesztelt)
+python main.py "movie.srt" --backend marian --source en --target hu
 
-# Több file együttes fordítása
-python main.py "subtitles/*.srt" --backend marian --verbose
-
-# Okos többsoros felismerés cross-entry támogatással
-python main.py "movie.srt" --backend marian --multiline-strategy smart
+# Más nyelvpárok (minőség nem tesztelt)
+python main.py "movie.srt" --backend marian --source ja --target hu
 ```
+
+> **Tipp:** A fordítás minősége függhet a nyelvpártól és a felirat stílusától. Az eredmények finomhangolhatók a következő paraméterekkel:
+> - `--cross-entry-detection` vagy `--no-cross-entry-detection`
+> - `--multiline-strategy smart|preserve_lines|join_all`
+> Próbálj ki különböző kombinációkat a legjobb eredmény érdekében az adott nyelvhez és feliratformátumhoz.
 
 ## 🛠️ Telepítés és beállítás
 

@@ -14,6 +14,8 @@ While mainstream perception often views subtitles as some kind of luxury or conv
 
 **MarianMT** is our **primary recommendation** for production subtitle translation, offering the best balance of speed, quality, and reliability.
 
+> **Note:** Only English→Hungarian (EN→HU) translation has been thoroughly tested. MarianMT supports many other language pairs (e.g., German→Hungarian, Japanese→Hungarian, etc.), but their translation quality is untested and may vary. You can specify any supported language pair using the `--source`, `--target`, and `--model` parameters.
+
 ### Key Features
 - ⚡ **Ultra-Fast**: 40x faster than Ollama (0.14s vs 5-6s per entry)
 - 🧠 **Intelligent Processing**: Cross-entry sentence detection spanning multiple timestamps
@@ -25,15 +27,17 @@ While mainstream perception often views subtitles as some kind of luxury or conv
 
 ### Quick Start
 ```bash
-# Single file translation
-python main.py "movie.srt" --backend marian
+# English to Hungarian (tested)
+python main.py "movie.srt" --backend marian --source en --target hu
 
-# Batch processing multiple files
-python main.py "subtitles/*.srt" --backend marian --verbose
-
-# Smart multiline with cross-entry detection
-python main.py "movie.srt" --backend marian --multiline-strategy smart
+# Other language pairs (quality untested)
+python main.py "movie.srt" --backend marian --source ja --target hu
 ```
+
+> **Tip:** For most common language pairs, you only need to set `--source` and `--target` (the app will select the correct MarianMT model automatically). Use `--model` only if you want to override with a custom or non-standard model. Translation quality may depend on the language pair and subtitle style. You can tweak results using parameters:
+> - `--cross-entry-detection` or `--no-cross-entry-detection`
+> - `--multiline-strategy smart|preserve_lines|join_all`
+> Try different combinations for best results with your language and subtitle format.
 
 ## 🛠️ Installation & Setup
 
