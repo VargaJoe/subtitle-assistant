@@ -814,7 +814,17 @@ class SubtitleTranslator:
             else:
                 # Multiple entries forming a sentence, translate as group
                 group_entries = [entries[i] for i in group_indices]
-                combined_text = ' '.join(entry.text.strip() for entry in group_entries)
+                
+                # Check if any entries contain HTML formatting
+                has_html = any(self._contains_html_tags(entry.text) for entry in group_entries)
+                
+                if has_html:
+                    # Handle HTML-formatted group with tag preservation
+                    combined_text, entry_html_info = self._combine_entries_with_html(group_entries)
+                else:
+                    # Simple text combination for non-HTML entries
+                    combined_text = ' '.join(entry.text.strip() for entry in group_entries)
+                    entry_html_info = None
                 
                 # Get context from the first entry in the group
                 context = self._get_translation_context(entries, group_indices[0]) if self.config.context_window > 0 else None
@@ -824,9 +834,16 @@ class SubtitleTranslator:
                     translated_combined = self.translation_client.translate_with_retry(combined_text, context)
                     
                     # Split the translated text back to individual entries
-                    split_translations = self._split_translation_to_entries(
-                        translated_combined, group_entries
-                    )
+                    if has_html and entry_html_info:
+                        # Split with HTML tag restoration
+                        split_translations = self._split_translation_with_html(
+                            translated_combined, group_entries, entry_html_info
+                        )
+                    else:
+                        # Standard splitting for non-HTML entries
+                        split_translations = self._split_translation_to_entries(
+                            translated_combined, group_entries
+                        )
                     
                     # Create translated entries with original timing
                     for i, (original_entry, split_text) in enumerate(zip(group_entries, split_translations)):
@@ -904,5 +921,173 @@ class SubtitleTranslator:
                 words_used += words_for_this_entry
             
             result.append(' '.join(portion_words))
+        
+        return result
+
+    def _contains_html_tags(self, text: str) -> bool:
+        """
+        Check if text contains HTML formatting tags.
+        
+        Args:
+            text: Text to check
+            
+        Returns:
+            True if HTML tags are found
+        """
+        import re
+        html_pattern = r'<[^>]+>'
+        return bool(re.search(html_pattern, text))
+    
+    def _combine_entries_with_html(self, entries: List[SubtitleEntry]) -> tuple:
+        """
+        Combine multiple entries while preserving HTML tag information.
+        
+        Args:
+            entries: List of subtitle entries to combine
+            
+        Returns:
+            Tuple of (clean_combined_text, html_info_per_entry)
+        """
+        import re
+        
+        entry_html_info = []
+        clean_texts = []
+        
+        for entry in entries:
+            # Extract HTML tags from this entry
+            html_pattern = r'<[^>]+>'
+            tags = re.findall(html_pattern, entry.text)
+            clean_text = re.sub(html_pattern, '', entry.text).strip()
+            
+            entry_html_info.append({
+                'original_text': entry.text,
+                'clean_text': clean_text,
+                'html_tags': tags,
+                'original_length': len(clean_text)
+            })
+            clean_texts.append(clean_text)
+        
+        # Combine clean texts
+        combined_clean = ' '.join(clean_texts)
+        
+        return combined_clean, entry_html_info
+    
+    def _split_translation_with_html(self, translated_text: str, original_entries: List[SubtitleEntry], entry_html_info: list) -> List[str]:
+        """
+        Split translated text back to entries and restore HTML formatting.
+        
+        Args:
+            translated_text: Combined translated text (without HTML)
+            original_entries: Original subtitle entries
+            entry_html_info: HTML information per entry
+            
+        Returns:
+            List of translated texts with HTML formatting restored
+        """
+        # First, split the translated text proportionally
+        clean_splits = self._split_translation_to_entries_clean(translated_text, entry_html_info)
+        
+        # Then restore HTML formatting to each split
+        result = []
+        for i, (clean_split, html_info) in enumerate(zip(clean_splits, entry_html_info)):
+            if html_info['html_tags']:
+                # Restore HTML formatting for this entry
+                formatted_text = self._restore_html_to_single_entry(clean_split, html_info)
+                result.append(formatted_text)
+            else:
+                # No HTML formatting needed
+                result.append(clean_split)
+        
+        return result
+    
+    def _split_translation_to_entries_clean(self, translated_text: str, entry_html_info: list) -> List[str]:
+        """
+        Split translated text proportionally based on original clean text lengths.
+        
+        Args:
+            translated_text: Combined translated text
+            entry_html_info: Information about original entries
+            
+        Returns:
+            List of split translated texts
+        """
+        original_lengths = [info['original_length'] for info in entry_html_info]
+        total_original_length = sum(original_lengths)
+        
+        if total_original_length == 0:
+            # Edge case: split equally
+            words = translated_text.split()
+            words_per_entry = len(words) // len(entry_html_info)
+            remainder = len(words) % len(entry_html_info)
+            
+            result = []
+            start_idx = 0
+            for i in range(len(entry_html_info)):
+                end_idx = start_idx + words_per_entry + (1 if i < remainder else 0)
+                result.append(' '.join(words[start_idx:end_idx]))
+                start_idx = end_idx
+            return result
+        
+        # Split proportionally by character count
+        translated_words = translated_text.split()
+        total_words = len(translated_words)
+        
+        result = []
+        words_used = 0
+        
+        for i, length in enumerate(original_lengths):
+            if i == len(original_lengths) - 1:
+                # Last entry gets all remaining words
+                portion_words = translated_words[words_used:]
+            else:
+                # Calculate proportional word count
+                proportion = length / total_original_length
+                words_for_this_entry = max(1, int(total_words * proportion))
+                portion_words = translated_words[words_used:words_used + words_for_this_entry]
+                words_used += words_for_this_entry
+            
+            result.append(' '.join(portion_words))
+        
+        return result
+    
+    def _restore_html_to_single_entry(self, clean_text: str, html_info: dict) -> str:
+        """
+        Restore HTML formatting to a single entry's translated text.
+        
+        Args:
+            clean_text: Translated text without HTML
+            html_info: HTML information for this entry
+            
+        Returns:
+            Text with HTML formatting restored
+        """
+        if not html_info['html_tags']:
+            return clean_text
+        
+        # For subtitle formatting, we typically want to wrap the entire text
+        # with the HTML tags found in the original
+        
+        # Count opening and closing tags
+        opening_tags = []
+        closing_tags = []
+        
+        for tag in html_info['html_tags']:
+            if tag.startswith('</'):
+                closing_tags.append(tag)
+            else:
+                opening_tags.append(tag)
+        
+        # Simple strategy: wrap with the most common formatting
+        # For subtitles, this is usually <i> or <b> tags
+        result = clean_text
+        
+        # If we have matching opening/closing pairs, use them
+        if len(opening_tags) == len(closing_tags) and len(opening_tags) > 0:
+            # Wrap with first opening/closing pair
+            result = opening_tags[0] + result + closing_tags[0]
+        elif len(opening_tags) > 0:
+            # Add opening tag and try to find matching closing
+            tag_name = opening_tags[0].split()[0][1:]  # Extract tag name
+            result = opening_tags[0] + result + f'</{tag_name}>'
         
         return result
