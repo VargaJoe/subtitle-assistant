@@ -166,7 +166,12 @@ class SubtitleTranslator:
                 # Note: progress.translated_entries should already contain all entries
                 pass
                 
-            self.parser.write_file(all_entries, output_path)
+            self.parser.write_file(
+                all_entries,
+                output_path,
+                max_row_length=self.config.max_row_length,
+                row_split_method=self.config.row_split_method
+            )
             
             # Clean up progress file on successful completion
             if progress.is_complete():

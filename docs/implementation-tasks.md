@@ -121,6 +121,30 @@
 - [x] Created PowerShell automation scripts for batch processing
 - [x] **Result**: Production-ready documentation suite for enterprise use
 
+### Story 12 - Subtitle Row Splitting (✅ COMPLETED)
+**Status**: Configurable row splitting for subtitle viewer compatibility
+- [x] **Configuration System**:
+  - [x] Added max_row_length (default: 42) and row_split_method (default: 'even') to config.yaml
+  - [x] Enhanced Config dataclass with output section for subtitle formatting
+  - [x] Three splitting methods: 'even' (balanced), 'word' (word boundaries), 'char' (character-level)
+- [x] **Core Implementation**:
+  - [x] Enhanced split_subtitle_text() function in srt_parser.py
+  - [x] Improved 'even' algorithm to evaluate all word boundary splits for optimal balance
+  - [x] Integration into SubtitleEntry.to_srt_format() for automatic output formatting
+- [x] **CLI Integration**:
+  - [x] Added --reformat-only option to main.py for reformatting without retranslation
+  - [x] Enhanced translate_all_srt.ps1 with -ReformatOnly switch for batch operations
+- [x] **Lightweight Reformatter**:
+  - [x] Created standalone reformat_srt.py to avoid AI model loading overhead
+  - [x] Fast text-only processing for existing translated files
+  - [x] Same splitting algorithms as main translator for consistency
+- [x] **Quality Optimization**:
+  - [x] Algorithm improvement: Fixed splitting from (23,34) chars imbalance to (30,27) chars near-perfect balance
+  - [x] Best word boundary selection to minimize line length differences
+  - [x] Maintains readability while ensuring compatibility with non-wrapping subtitle viewers
+- [x] **Result**: Production-ready row splitting with dual implementation for both translation and reformatting workflows
+
+
 ## In-Progress Stories
 
 Currently no stories in progress.

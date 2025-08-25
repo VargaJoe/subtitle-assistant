@@ -15,7 +15,6 @@ from subtitle_translator.config import Config
 
 
 def main():
-    """Main entry point for the subtitle translator CLI."""
     parser = argparse.ArgumentParser(
         description="Translate SRT subtitle files using AI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -27,6 +26,26 @@ Examples:
   python main.py input.srt --config custom_config.yaml
         """
     )
+
+    # ...existing argument definitions...
+
+    parser.add_argument(
+        "--reformat-only",
+        action="store_true",
+        help="Only reformat SRT file(s) using row splitting config, no translation."
+    )
+
+    def reformat_srt_file(input_path: Path, output_path: Path, config):
+        from subtitle_translator.srt_parser import SRTParser
+        parser = SRTParser()
+        entries = parser.parse_file(input_path)
+        parser.write_file(
+            entries,
+            output_path,
+            max_row_length=config.max_row_length,
+            row_split_method=config.row_split_method
+        )
+        print(f"✅ Reformatted {input_path} -> {output_path} (max_row_length={config.max_row_length}, method={config.row_split_method})")
     
     parser.add_argument(
         "input",
@@ -249,23 +268,36 @@ Examples:
     try:
         # Handle single file or batch processing
         input_path = Path(args.input)
-        
-        if args.batch or "*" in args.input:
-            # Batch processing
-            if "*" in args.input:
-                files = list(Path().glob(args.input))
+
+        if args.reformat_only:
+            # Only reformat, no translation
+            if args.batch or "*" in args.input:
+                if "*" in args.input:
+                    files = list(Path().glob(args.input))
+                else:
+                    files = [input_path] if input_path.is_file() else list(input_path.glob("*.srt"))
+                print(f"Reformatting {len(files)} files...")
+                for file in files:
+                    output_path = args.output or config.get_output_filename(file)
+                    reformat_srt_file(file, output_path, config)
             else:
-                files = [input_path] if input_path.is_file() else list(input_path.glob("*.srt"))
-            
-            print(f"Processing {len(files)} files...")
-            for file in files:
-                output_path = args.output or config.get_output_filename(file)
-                translator.translate_file(file, output_path, resume=resume_enabled)
+                output_path = args.output or config.get_output_filename(input_path)
+                reformat_srt_file(input_path, output_path, config)
         else:
-            # Single file processing
-            output_path = args.output or config.get_output_filename(input_path)
-            translator.translate_file(input_path, output_path, resume=resume_enabled)
-            
+            if args.batch or "*" in args.input:
+                # Batch processing
+                if "*" in args.input:
+                    files = list(Path().glob(args.input))
+                else:
+                    files = [input_path] if input_path.is_file() else list(input_path.glob("*.srt"))
+                print(f"Processing {len(files)} files...")
+                for file in files:
+                    output_path = args.output or config.get_output_filename(file)
+                    translator.translate_file(file, output_path, resume=resume_enabled)
+            else:
+                # Single file processing
+                output_path = args.output or config.get_output_filename(input_path)
+                translator.translate_file(input_path, output_path, resume=resume_enabled)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
