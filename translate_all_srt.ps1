@@ -48,8 +48,15 @@ param(
     [switch]$Verbose,
     [switch]$DryRun,
     [switch]$NoCrossEntryDetection,   # New: disable cross-entry detection
-    [switch]$NoSmartMultiline         # New: disable smart multiline strategy
+    [switch]$NoSmartMultiline,        # New: disable smart multiline strategy
+    [switch]$ReformatOnly             # New: only reformat SRT files, no translation
 )
+
+
+# If reformat-only and user did not specify SubtitlesPath, default to 'output'
+if ($ReformatOnly -and $PSBoundParameters['SubtitlesPath'] -eq $null) {
+    $SubtitlesPath = $OutputPath
+}
 
 # Colors for output
 $Green = "`e[32m"
@@ -61,6 +68,10 @@ $Reset = "`e[0m"
 Write-Host "${Blue}🎬 Subtitle Assistant - Batch Translation Script${Reset}" -ForegroundColor Blue
 Write-Host "===============================================" -ForegroundColor Blue
 Write-Host ""
+
+if ($ReformatOnly) {
+    Write-Host "${Yellow}⚡ Reformat-only mode: Will only split subtitle rows, no translation.${Reset}" -ForegroundColor Yellow
+}
 
 # Check if subtitles folder exists
 if (-not (Test-Path $SubtitlesPath)) {
@@ -77,15 +88,29 @@ if (-not (Test-Path $OutputPath)) {
 
 # Find all SRT files
 Write-Host "${Blue}🔍 Scanning for SRT files in: $SubtitlesPath${Reset}" -ForegroundColor Blue
-$srtFiles = Get-ChildItem -Path $SubtitlesPath -Filter "*.srt" -Recurse | Where-Object { $_.Name -notlike "*.hun.srt" -and $_.Name -notlike "*.hu.srt" }
+if ($ReformatOnly) {
+    # For reformatting, include all SRT files (including already translated ones)
+    $srtFiles = Get-ChildItem -Path $SubtitlesPath -Filter "*.srt" -Recurse
+} else {
+    # For translation, exclude already translated files
+    $srtFiles = Get-ChildItem -Path $SubtitlesPath -Filter "*.srt" -Recurse | Where-Object { $_.Name -notlike "*.hun.srt" -and $_.Name -notlike "*.hu.srt" }
+}
 
 if ($srtFiles.Count -eq 0) {
     Write-Host "${Yellow}⚠️  No SRT files found in '$SubtitlesPath'${Reset}" -ForegroundColor Yellow
-    Write-Host "Make sure you have .srt files in the subtitles folder." -ForegroundColor Yellow
+    if ($ReformatOnly) {
+        Write-Host "Make sure you have .srt files in the output folder." -ForegroundColor Yellow
+    } else {
+        Write-Host "Make sure you have .srt files in the subtitles folder." -ForegroundColor Yellow
+    }
     exit 0
 }
 
-Write-Host "${Green}✅ Found $($srtFiles.Count) SRT files to translate${Reset}" -ForegroundColor Green
+if ($ReformatOnly) {
+    Write-Host "${Green}✅ Found $($srtFiles.Count) SRT files to reformat${Reset}" -ForegroundColor Green
+} else {
+    Write-Host "${Green}✅ Found $($srtFiles.Count) SRT files to translate${Reset}" -ForegroundColor Green
+}
 Write-Host ""
 
 # Show files that will be processed
@@ -93,34 +118,63 @@ Write-Host "${Blue}📋 Files to be processed:${Reset}" -ForegroundColor Blue
 foreach ($file in $srtFiles) {
     $relativePath = $file.FullName.Replace((Get-Location).Path + "\", "")
     $baseName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
-    $outputFile = Join-Path $OutputPath "$baseName.hun.srt"
     
-    Write-Host "  📄 Input:  $relativePath" -ForegroundColor Cyan
-    Write-Host "  📤 Output: $outputFile" -ForegroundColor Green
+    if ($ReformatOnly) {
+        # For reformat, output to the same file (in-place editing)
+        $outputFile = $file.FullName
+        Write-Host "  📄 File:   $relativePath" -ForegroundColor Cyan
+        Write-Host "  🔧 Action: Reformat in-place" -ForegroundColor Yellow
+    } else {
+        # For translation, output to new file with .hun.srt extension
+        $outputFile = Join-Path $OutputPath "$baseName.hun.srt"
+        Write-Host "  📄 Input:  $relativePath" -ForegroundColor Cyan
+        Write-Host "  📤 Output: $outputFile" -ForegroundColor Green
+    }
     Write-Host ""
 }
 
 if ($DryRun) {
-    Write-Host "${Yellow}🏃 Dry run completed. No files were translated.${Reset}" -ForegroundColor Yellow
-    Write-Host "Remove -DryRun parameter to perform actual translation." -ForegroundColor Yellow
+    if ($ReformatOnly) {
+        Write-Host "${Yellow}🏃 Dry run completed. No files were reformatted.${Reset}" -ForegroundColor Yellow
+        Write-Host "Remove -DryRun parameter to perform actual reformatting." -ForegroundColor Yellow
+    } else {
+        Write-Host "${Yellow}🏃 Dry run completed. No files were translated.${Reset}" -ForegroundColor Yellow
+        Write-Host "Remove -DryRun parameter to perform actual translation." -ForegroundColor Yellow
+    }
     exit 0
 }
 
 # Confirm before proceeding
-Write-Host "${Yellow}❓ Do you want to proceed with translation? [Y/N]${Reset}" -ForegroundColor Yellow -NoNewline
+if ($ReformatOnly) {
+    Write-Host "${Yellow}❓ Do you want to proceed with reformatting? [Y/N]${Reset}" -ForegroundColor Yellow -NoNewline
+} else {
+    Write-Host "${Yellow}❓ Do you want to proceed with translation? [Y/N]${Reset}" -ForegroundColor Yellow -NoNewline
+}
 $confirmation = Read-Host
 if ($confirmation -notmatch '^[Yy]') {
-    Write-Host "${Yellow}❌ Translation cancelled by user.${Reset}" -ForegroundColor Yellow
+    if ($ReformatOnly) {
+        Write-Host "${Yellow}❌ Reformatting cancelled by user.${Reset}" -ForegroundColor Yellow
+    } else {
+        Write-Host "${Yellow}❌ Translation cancelled by user.${Reset}" -ForegroundColor Yellow
+    }
     exit 0
 }
 
 Write-Host ""
-Write-Host "${Green}🚀 Starting batch translation with MarianMT...${Reset}" -ForegroundColor Green
-Write-Host "Configuration:" -ForegroundColor Cyan
-Write-Host "  - Backend: MarianMT (Helsinki-NLP/opus-mt-en-hu)" -ForegroundColor Cyan
-Write-Host "  - Strategy: Smart multiline with cross-entry detection" -ForegroundColor Cyan
-Write-Host "  - Mode: Line-by-line (resumable)" -ForegroundColor Cyan
-Write-Host ""
+if ($ReformatOnly) {
+    Write-Host "${Green}🚀 Starting batch reformatting...${Reset}" -ForegroundColor Green
+    Write-Host "Configuration:" -ForegroundColor Cyan
+    Write-Host "  - Row splitting: Configured in config.yaml" -ForegroundColor Cyan
+    Write-Host "  - No translation will be performed" -ForegroundColor Cyan
+    Write-Host ""
+} else {
+    Write-Host "${Green}🚀 Starting batch translation with MarianMT...${Reset}" -ForegroundColor Green
+    Write-Host "Configuration:" -ForegroundColor Cyan
+    Write-Host "  - Backend: MarianMT (Helsinki-NLP/opus-mt-en-hu)" -ForegroundColor Cyan
+    Write-Host "  - Strategy: Smart multiline with cross-entry detection" -ForegroundColor Cyan
+    Write-Host "  - Mode: Line-by-line (resumable)" -ForegroundColor Cyan
+    Write-Host ""
+}
 
 # Process each file
 $successCount = 0
@@ -130,44 +184,58 @@ $startTime = Get-Date
 foreach ($file in $srtFiles) {
     $fileNumber = [array]::IndexOf($srtFiles, $file) + 1
     $baseName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
-    $outputFile = Join-Path $OutputPath "$baseName.hun.srt"
+    
+    if ($ReformatOnly) {
+        # For reformatting, overwrite the original file (or use .reformatted suffix to avoid overwriting)
+        $outputFile = $file.FullName  # Overwrite original
+        # Alternative: $outputFile = Join-Path $OutputPath "$baseName.reformatted.srt"
+    } else {
+        $outputFile = Join-Path $OutputPath "$baseName.hun.srt"
+    }
 
     Write-Host "${Blue}[$fileNumber/$($srtFiles.Count)] Processing: $($file.Name)${Reset}" -ForegroundColor Blue
 
     # Build the command arguments
-    $arguments = @(
-        "main.py",
-        "`"$($file.FullName)`"",
-        "--backend", "marian",
-        "--output", "`"$outputFile`"",
-        "--source", "$SourceLanguage",
-        "--target", "$TargetLanguage"
-    )
-
-    if ($Model) {
-        $arguments += "--model"
-        $arguments += "$Model"
-    }
-
-    if ($NoSmartMultiline) {
-        $arguments += "--multiline-strategy"
-        $arguments += "preserve_lines"
+    if ($ReformatOnly) {
+        $arguments = @(
+            "reformat_srt.py",
+            "`"$($file.FullName)`""
+        )
     } else {
-        $arguments += "--multiline-strategy"
-        $arguments += "smart"
+        $arguments = @(
+            "main.py",
+            "`"$($file.FullName)`"",
+            "--backend", "marian",
+            "--output", "`"$outputFile`"",
+            "--source", "$SourceLanguage",
+            "--target", "$TargetLanguage"
+        )
+
+        if ($Model) {
+            $arguments += "--model"
+            $arguments += "$Model"
+        }
+
+        if ($NoSmartMultiline) {
+            $arguments += "--multiline-strategy"
+            $arguments += "preserve_lines"
+        } else {
+            $arguments += "--multiline-strategy"
+            $arguments += "smart"
+        }
+
+        if ($NoCrossEntryDetection) {
+            $arguments += "--no-cross-entry-detection"
+        } else {
+            $arguments += "--cross-entry-detection"
+        }
+
+        if ($Verbose) {
+            $arguments += "--verbose"
+        }
     }
 
-    if ($NoCrossEntryDetection) {
-        $arguments += "--no-cross-entry-detection"
-    } else {
-        $arguments += "--cross-entry-detection"
-    }
-
-    if ($Verbose) {
-        $arguments += "--verbose"
-    }
-
-    # Execute translation
+    # Execute translation or reformat
     try {
         $startFileTime = Get-Date
 

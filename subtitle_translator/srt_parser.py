@@ -9,6 +9,89 @@ from pathlib import Path
 from typing import List, Optional, Iterator
 from datetime import timedelta
 
+def split_subtitle_text(text: str, max_length: int = 42, method: str = "even") -> str:
+    """
+    Split subtitle text into rows according to max_length and method.
+    Methods:
+        - even: Split as evenly as possible, may break words if needed.
+        - word: Split at word boundaries, never break words.
+        - char: Split at exact character count, may break words.
+    """
+    if not text or max_length < 1:
+        return text
+
+    lines = []
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    paragraphs = text.split('\n')
+    for paragraph in paragraphs:
+        paragraph = paragraph.strip()
+        if not paragraph:
+            continue
+        if method == "char":
+            # Split at exact character count
+            for i in range(0, len(paragraph), max_length):
+                lines.append(paragraph[i:i+max_length])
+        elif method == "word":
+            # Split at word boundaries
+            words = paragraph.split()
+            current_line = ""
+            for word in words:
+                if len(current_line) + len(word) + (1 if current_line else 0) > max_length:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+                else:
+                    current_line = (current_line + " " + word) if current_line else word
+            if current_line:
+                lines.append(current_line)
+        else:  # even
+            # Split as evenly as possible, trying different split points
+            if len(paragraph) <= max_length:
+                lines.append(paragraph)
+            else:
+                words = paragraph.split()
+                best_split = None
+                min_difference = float('inf')
+                
+                # Try splitting at different word positions
+                for i in range(1, len(words)):
+                    first_part = " ".join(words[:i])
+                    second_part = " ".join(words[i:])
+                    
+                    # Both parts must fit within max_length
+                    if len(first_part) <= max_length and len(second_part) <= max_length:
+                        # Calculate how even the split is
+                        difference = abs(len(first_part) - len(second_part))
+                        
+                        # Prefer this split if it's more even
+                        if difference < min_difference:
+                            min_difference = difference
+                            best_split = (first_part, second_part)
+                
+                if best_split:
+                    # Found a good 2-line split
+                    lines.append(best_split[0])
+                    lines.append(best_split[1])
+                else:
+                    # No good 2-line split possible, fall back to word-boundary splitting
+                    current_line = ""
+                    for word in words:
+                        test_line = (current_line + " " + word) if current_line else word
+                        
+                        if len(test_line) > max_length:
+                            if current_line:
+                                lines.append(current_line)
+                                current_line = word
+                            else:
+                                lines.append(word)
+                                current_line = ""
+                        else:
+                            current_line = test_line
+                    
+                    if current_line:
+                        lines.append(current_line)
+    return '\n'.join(lines)
+
 
 @dataclass
 class SubtitleEntry:
@@ -56,12 +139,13 @@ class SubtitleEntry:
         
         return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
     
-    def to_srt_format(self, use_original: bool = False) -> str:
-        """Convert entry back to SRT format."""
+    def to_srt_format(self, use_original: bool = False, max_row_length: int = 42, row_split_method: str = "even") -> str:
+        """Convert entry back to SRT format, applying row splitting."""
         text_to_use = self.original_text if use_original and self.original_text else self.text
+        # Apply row splitting
+        text_to_use = split_subtitle_text(text_to_use, max_row_length, row_split_method)
         start_time_str = self.format_time(self.start_time)
         end_time_str = self.format_time(self.end_time)
-        
         return f"{self.index}\n{start_time_str} --> {end_time_str}\n{text_to_use}\n"
 
 
@@ -194,7 +278,7 @@ class SRTParser:
             milliseconds=int(milliseconds)
         )
     
-    def write_file(self, entries: List[SubtitleEntry], file_path: Path) -> None:
+    def write_file(self, entries: List[SubtitleEntry], file_path: Path, max_row_length: int = 42, row_split_method: str = "even") -> None:
         """
         Write subtitle entries to SRT file.
         
@@ -208,14 +292,11 @@ class SRTParser:
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
                 for i, entry in enumerate(entries):
-                    f.write(entry.to_srt_format())
-                    
+                    f.write(entry.to_srt_format(max_row_length=max_row_length, row_split_method=row_split_method))
                     # Add separator between entries (except for last one)
                     if i < len(entries) - 1:
                         f.write('\n')
-            
             self.logger.info(f"Written {len(entries)} subtitle entries to {file_path}")
-            
         except IOError as e:
             raise ValueError(f"Failed to write SRT file {file_path}: {e}")
     

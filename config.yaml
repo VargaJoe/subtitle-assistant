@@ -194,6 +194,10 @@ output:
   suffix: "{target_lang}"  # e.g., "filename.hu.srt"
   encoding: "utf-8"
   preserve_formatting: true
+
+  # Subtitle row splitting settings
+  max_row_length: 42  # Recommended default for SRT compatibility
+  row_split_method: "even"  # "even", "word", "char"
   
 # Logging settings
 logging:

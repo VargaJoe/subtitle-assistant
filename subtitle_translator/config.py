@@ -163,6 +163,10 @@ class Config:
     output_suffix: str = "{target_lang}"
     output_encoding: str = "utf-8"
     preserve_formatting: bool = True
+
+    # Subtitle row splitting settings
+    max_row_length: int = 42  # Recommended default for SRT compatibility
+    row_split_method: str = "even"  # "even", "word", "char"
     
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -198,6 +202,10 @@ class Config:
             raise ValueError("Overlap size must be smaller than batch size")
         if self.marian.multiline_strategy not in ["smart", "preserve_lines", "join_all"]:
             raise ValueError("MarianMT multiline strategy must be 'smart', 'preserve_lines', or 'join_all'")
+        if not (10 <= self.max_row_length <= 80):
+            raise ValueError("max_row_length must be between 10 and 80 for SRT compatibility")
+        if self.row_split_method not in ["even", "word", "char"]:
+            raise ValueError("row_split_method must be 'even', 'word', or 'char'")
     
     @classmethod
     def from_yaml(cls, config_path: Path) -> 'Config':
@@ -314,7 +322,9 @@ class Config:
             resume_enabled=processing.get('resume_enabled', True),
             output_suffix=output.get('suffix', '{target_lang}'),
             output_encoding=output.get('encoding', 'utf-8'),
-            preserve_formatting=output.get('preserve_formatting', True)
+            preserve_formatting=output.get('preserve_formatting', True),
+            max_row_length=output.get('max_row_length', 42),
+            row_split_method=output.get('row_split_method', 'even')
         )
     
     @property
