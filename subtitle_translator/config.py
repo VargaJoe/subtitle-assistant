@@ -1,11 +1,21 @@
-"""
-Configuration module for subtitle translator.
+"""Configuration module for subtitle translator.
 """
 
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+
+
+# Language code mapping: 2-letter -> 3-letter ISO 639-2 codes
+LANGUAGE_CODE_MAP = {
+    'en': 'eng', 'hu': 'hun', 'de': 'deu', 'fr': 'fra', 'es': 'spa',
+    'it': 'ita', 'pt': 'por', 'ru': 'rus', 'ja': 'jpn', 'ko': 'kor',
+    'zh': 'chi', 'ar': 'ara', 'pl': 'pol', 'nl': 'nld', 'sv': 'swe',
+    'no': 'nor', 'da': 'dan', 'fi': 'fin', 'cs': 'ces', 'tr': 'tur',
+    'el': 'ell', 'he': 'heb', 'th': 'tha', 'vi': 'vie', 'id': 'ind',
+    'ro': 'ron', 'uk': 'ukr', 'bg': 'bul', 'hr': 'hrv', 'sk': 'slk',
+}
 
 
 @dataclass
@@ -355,7 +365,9 @@ class Config:
         Returns:
             Path to output file with cleaned filename
         """
-        suffix = self.output_suffix.format(target_lang=self.target_lang)
+        # Convert 2-letter to 3-letter language code
+        target_lang_3 = LANGUAGE_CODE_MAP.get(self.target_lang, self.target_lang)
+        suffix = self.output_suffix.format(target_lang=target_lang_3)
         
         # Remove source language indicators from filename
         base_name = input_path.stem

@@ -62,16 +62,16 @@ def test_filename_cleanup():
 
 
 def test_output_filename_generation():
-    """Test complete output filename generation."""
+    """Test complete output filename generation with 3-letter codes."""
     config = Config()
     config.target_lang = "hu"
     
     test_cases = [
         # (input_path, expected_output_name)
-        ("subtitles/moviename.eng.srt", "moviename.hu.srt"),
-        ("subtitles/tvshow.s01e01.en.srt", "tvshow.s01e01.hu.srt"),
-        ("path/to/movie_track4_eng_1.srt", "movie_track4_1.hu.srt"),
-        ("test.srt", "test.hu.srt"),
+        ("subtitles/moviename.eng.srt", "moviename.hun.srt"),
+        ("subtitles/tvshow.s01e01.en.srt", "tvshow.s01e01.hun.srt"),
+        ("path/to/movie_track4_eng_1.srt", "movie_track4_1.hun.srt"),
+        ("test.srt", "test.hun.srt"),
     ]
     
     print("\nTesting complete output filename generation:")
