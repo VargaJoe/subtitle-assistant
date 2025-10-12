@@ -347,7 +347,55 @@ class Config:
     def get_output_filename(self, input_path: Path) -> Path:
         """Generate output filename based on configuration."""
         suffix = self.output_suffix.format(target_lang=self.target_lang)
-        return input_path.with_suffix(f".{suffix}.srt")
+        
+        # Remove source language indicators from filename
+        base_name = input_path.stem
+        cleaned_name = self._remove_language_indicators(base_name)
+        
+        # Build output path with cleaned name
+        output_name = f"{cleaned_name}.{suffix}.srt"
+        return input_path.parent / output_name
+    
+    def _remove_language_indicators(self, filename: str) -> str:
+        """
+        Remove language indicators from filename.
+        
+        Examples:
+            moviename.eng.srt -> moviename
+            moviename.en.srt -> moviename
+            moviename_track4_eng_1.srt -> moviename_track4_1
+            Blue.Bloods.s14e01.eng.srt -> Blue.Bloods.s14e01
+        
+        Args:
+            filename: Base filename without extension
+            
+        Returns:
+            Cleaned filename without language indicators
+        """
+        import re
+        
+        # Common language codes to remove (both 2-letter and 3-letter ISO codes)
+        language_codes = [
+            'eng', 'en', 'hun', 'hu', 'deu', 'de', 'fra', 'fr', 'spa', 'es',
+            'ita', 'it', 'por', 'pt', 'rus', 'ru', 'jpn', 'ja', 'kor', 'ko',
+            'chi', 'zh', 'ara', 'ar', 'pol', 'pl', 'nld', 'nl', 'swe', 'sv',
+            'nor', 'no', 'dan', 'da', 'fin', 'fi', 'ces', 'cs', 'tur', 'tr'
+        ]
+        
+        # Create regex pattern for language codes
+        # Matches: .eng, _eng, -eng, .en, _en, -en (case insensitive)
+        pattern = r'[._-](' + '|'.join(language_codes) + r')(?=[._-]|\d|$)'
+        
+        # Remove language indicators
+        cleaned = re.sub(pattern, '', filename, flags=re.IGNORECASE)
+        
+        # Clean up any double separators that might result from removal
+        cleaned = re.sub(r'[._-]{2,}', lambda m: m.group()[0], cleaned)
+        
+        # Remove trailing separators
+        cleaned = re.sub(r'[._-]+$', '', cleaned)
+        
+        return cleaned
     
     def get_formality_instruction(self) -> str:
         """Get formality instruction for translation prompts."""

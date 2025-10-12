@@ -73,6 +73,18 @@ python main.py --help
 
 ## 📚 Advanced Features
 
+### Automatic Filename Cleanup
+Automatically removes source language indicators from filenames to prevent duplication:
+
+```
+Input:  moviename.eng.srt            → Output: moviename.hun.srt
+        Blue.Bloods.14x01.en.srt     → Output: Blue.Bloods.14x01.hun.srt
+        movie_track4_eng_1.srt       → Output: movie_track4_1.hun.srt
+```
+
+Supports 40+ language codes (en, eng, de, deu, fr, fra, etc.) with flexible separators (`.`, `_`, `-`).  
+See [Filename Cleanup Guide](docs/FILENAME_CLEANUP_GUIDE.md) for details.
+
 ### Cross-Entry Sentence Detection
 Automatically detects sentences spanning multiple subtitle timestamps:
 
