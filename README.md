@@ -71,6 +71,41 @@ python main.py --help
 - **Best for:** Experimental research, custom AI model exploration.
 - **Cons:** Slower, requires installation, experimental status.
 
+## 🎓 Train Custom Models
+
+**NEW!** Train your own MarianMT models optimized for specific genres and subtitle styles!
+
+### Why Train Custom Models?
+- **Genre-specific optimization**: Drama, comedy, action, sci-fi, etc.
+- **Better consistency**: Maintain character voices and terminology
+- **Domain adaptation**: Technical terms, slang, idioms
+- **Quality improvement**: Fine-tune for your specific use case
+
+### Quick Start with GUI
+```powershell
+# Launch the PowerShell GUI
+.\train_marian_gui.ps1
+```
+
+### CLI Training
+```bash
+# Train from SRT file pairs
+python train_marian.py train-srt \
+  --source en --target hu \
+  --genre drama \
+  --source-files movie1.en.srt movie2.en.srt \
+  --target-files movie1.hu.srt movie2.hu.srt
+
+# List trained models
+python train_marian.py list
+
+# Use trained model
+# Update config.yaml: marian.model = "./trained_models/your-model"
+python main.py movie.srt --backend marian
+```
+
+📖 **Full documentation**: [MarianMT Training Guide](docs/MARIANMT_TRAINING_GUIDE.md)
+
 ## 📚 Advanced Features
 
 ### Automatic Filename Cleanup
