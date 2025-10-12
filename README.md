@@ -104,7 +104,9 @@ python train_marian.py list
 python main.py movie.srt --backend marian
 ```
 
-📖 **Full documentation**: [MarianMT Training Guide](docs/MARIANMT_TRAINING_GUIDE.md)
+📖 **Documentation**: 
+- [Quick Start Guide](docs/TRAINING_QUICK_START.md) - Get started in minutes
+- [Full Training Guide](docs/MARIANMT_TRAINING_GUIDE.md) - Complete documentation
 
 ## 📚 Advanced Features
 
