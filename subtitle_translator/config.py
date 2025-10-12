@@ -344,8 +344,17 @@ class Config:
         }
         return languages.get(code.lower(), code.upper())
     
-    def get_output_filename(self, input_path: Path) -> Path:
-        """Generate output filename based on configuration."""
+    def get_output_filename(self, input_path: Path, output_dir: Optional[Path] = None) -> Path:
+        """
+        Generate output filename based on configuration.
+        
+        Args:
+            input_path: Path to input file
+            output_dir: Optional output directory (default: same as input)
+            
+        Returns:
+            Path to output file with cleaned filename
+        """
         suffix = self.output_suffix.format(target_lang=self.target_lang)
         
         # Remove source language indicators from filename
@@ -354,6 +363,10 @@ class Config:
         
         # Build output path with cleaned name
         output_name = f"{cleaned_name}.{suffix}.srt"
+        
+        # Use output_dir if provided, otherwise use input directory
+        if output_dir:
+            return output_dir / output_name
         return input_path.parent / output_name
     
     def _remove_language_indicators(self, filename: str) -> str:
