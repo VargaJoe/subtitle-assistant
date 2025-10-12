@@ -98,7 +98,9 @@ As a subtitle translator processing large volumes of content, I want to use Mari
 - **Cost**: Reduced computational requirements vs LLM approaches
 
 ## Success Metrics
-- Process Blue Bloods S14 (20+ episodes) in under 30 minutes
+- 30 episodes in under 25 minutes (average 50 seconds per episode)
+- Process full TV season (20+ episodes) in under 30 minutes
+- Average 80-90% translation quality (verified through production testing)
 - Maintain translation quality scores of 90%+
 - Zero manual intervention required for standard subtitle files
 - 95%+ user satisfaction with translation naturalness

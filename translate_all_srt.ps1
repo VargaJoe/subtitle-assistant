@@ -183,30 +183,24 @@ $startTime = Get-Date
 
 foreach ($file in $srtFiles) {
     $fileNumber = [array]::IndexOf($srtFiles, $file) + 1
-    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
     
-    if ($ReformatOnly) {
-        # For reformatting, overwrite the original file (or use .reformatted suffix to avoid overwriting)
-        $outputFile = $file.FullName  # Overwrite original
-        # Alternative: $outputFile = Join-Path $OutputPath "$baseName.reformatted.srt"
-    } else {
-        $outputFile = Join-Path $OutputPath "$baseName.hun.srt"
-    }
-
     Write-Host "${Blue}[$fileNumber/$($srtFiles.Count)] Processing: $($file.Name)${Reset}" -ForegroundColor Blue
 
     # Build the command arguments
     if ($ReformatOnly) {
+        # For reformatting, overwrite the original file
         $arguments = @(
             "reformat_srt.py",
             "`"$($file.FullName)`""
         )
     } else {
+        # Use --output-dir to specify output directory
+        # Python's config.get_output_filename() will handle filename cleanup
         $arguments = @(
             "main.py",
             "`"$($file.FullName)`"",
             "--backend", "marian",
-            "--output", "`"$outputFile`"",
+            "--output-dir", "`"$OutputPath`"",
             "--source", "$SourceLanguage",
             "--target", "$TargetLanguage"
         )

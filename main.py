@@ -59,6 +59,11 @@ Examples:
     )
     
     parser.add_argument(
+        "--output-dir",
+        help="Output directory for translated files (default: same as input)"
+    )
+    
+    parser.add_argument(
         "--config", "-c",
         help="Configuration YAML file (default: config.yaml)"
     )
@@ -268,6 +273,9 @@ Examples:
     try:
         # Handle single file or batch processing
         input_path = Path(args.input)
+        
+        # Get output directory if specified
+        output_dir = Path(args.output_dir) if args.output_dir else None
 
         if args.reformat_only:
             # Only reformat, no translation
@@ -278,10 +286,10 @@ Examples:
                     files = [input_path] if input_path.is_file() else list(input_path.glob("*.srt"))
                 print(f"Reformatting {len(files)} files...")
                 for file in files:
-                    output_path = args.output or config.get_output_filename(file)
+                    output_path = args.output or config.get_output_filename(file, output_dir)
                     reformat_srt_file(file, output_path, config)
             else:
-                output_path = args.output or config.get_output_filename(input_path)
+                output_path = args.output or config.get_output_filename(input_path, output_dir)
                 reformat_srt_file(input_path, output_path, config)
         else:
             if args.batch or "*" in args.input:
@@ -292,11 +300,11 @@ Examples:
                     files = [input_path] if input_path.is_file() else list(input_path.glob("*.srt"))
                 print(f"Processing {len(files)} files...")
                 for file in files:
-                    output_path = args.output or config.get_output_filename(file)
+                    output_path = args.output or config.get_output_filename(file, output_dir)
                     translator.translate_file(file, output_path, resume=resume_enabled)
             else:
                 # Single file processing
-                output_path = args.output or config.get_output_filename(input_path)
+                output_path = args.output or config.get_output_filename(input_path, output_dir)
                 translator.translate_file(input_path, output_path, resume=resume_enabled)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
