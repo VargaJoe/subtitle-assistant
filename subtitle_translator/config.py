@@ -377,7 +377,7 @@ class Config:
             moviename.eng.srt -> moviename
             moviename.en.srt -> moviename
             moviename_track4_eng_1.srt -> moviename_track4_1
-            Blue.Bloods.s14e01.eng.srt -> Blue.Bloods.s14e01
+            tvshow.s01e01.eng.srt -> tvshow.s01e01
         
         Args:
             filename: Base filename without extension

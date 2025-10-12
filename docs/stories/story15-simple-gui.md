@@ -271,16 +271,16 @@ Create a simple, fast, and easy-to-use PowerShell-based GUI for the Subtitle Ass
 │  │ Status: Ready                                           │   │
 │  │ Files: 0/15                                             │   │
 │  │ [█████████░░░░░░░░░░░░░░] 45% - ETA: 2m 30s            │   │
-│  │ Current: Blue.Bloods.s14e03.srt                         │   │
+│  │ Current: tvshow.s01e03.srt                              │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │ Log Output                                    [Clear]   │   │
 │  ├─────────────────────────────────────────────────────────┤   │
 │  │ [INFO] Starting translation...                          │   │
-│  │ [INFO] Processing Blue.Bloods.s14e01.srt                │   │
+│  │ [INFO] Processing tvshow.s01e01.srt                     │   │
 │  │ [SUCCESS] Translation complete (23.5s)                  │   │
-│  │ [INFO] Processing Blue.Bloods.s14e02.srt                │   │
+│  │ [INFO] Processing tvshow.s01e02.srt                     │   │
 │  │ ...                                                     │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                 │

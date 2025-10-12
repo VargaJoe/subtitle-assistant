@@ -8,12 +8,12 @@ When translating subtitle files that contain source language indicators in their
 
 **Before (❌ Incorrect):**
 - `moviename.eng.srt` → `moviename.eng.hun.srt`
-- `Blue.Bloods.14x01.en.srt` → `Blue.Bloods.14x01.en.hun.srt`
+- `tvshow.s01e01.en.srt` → `tvshow.s01e01.en.hun.srt`
 - `movie_track4_eng_1.srt` → `movie_track4_eng_1.hun.srt`
 
 **After (✅ Correct):**
 - `moviename.eng.srt` → `moviename.hun.srt`
-- `Blue.Bloods.14x01.en.srt` → `Blue.Bloods.14x01.hun.srt`
+- `tvshow.s01e01.en.srt` → `tvshow.s01e01.hun.srt`
 - `movie_track4_eng_1.srt` → `movie_track4_1.hun.srt`
 
 ## Features
@@ -55,10 +55,10 @@ The cleanup process happens automatically when generating output filenames:
 Input:                              Output:
 ─────────────────────────────────── ───────────────────────────
 moviename.eng.srt                   moviename.hun.srt
-Blue.Bloods.s14e01.eng.srt         Blue.Bloods.s14e01.hun.srt
-Blue.Bloods.14x03.de.srt           Blue.Bloods.14x03.hun.srt
+tvshow.s01e01.eng.srt              tvshow.s01e01.hun.srt
+tvshow.s01e03.de.srt               tvshow.s01e03.hun.srt
 series.s01e01.en.720p.srt          series.s01e01.720p.hun.srt
-NCIS.Hawaii.S02E01.en.srt          NCIS.Hawaii.S02E01.hun.srt
+show.s02e01.en.srt                 show.s02e01.hun.srt
 movie_track4_eng_1.srt             movie_track4_1.hun.srt
 subtitle-eng-final.srt             subtitle-final.hun.srt
 show_s01e01_eng_final.srt          show_s01e01_final.hun.srt

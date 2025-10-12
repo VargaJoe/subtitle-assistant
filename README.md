@@ -78,7 +78,7 @@ Automatically removes source language indicators from filenames to prevent dupli
 
 ```
 Input:  moviename.eng.srt            → Output: moviename.hun.srt
-        Blue.Bloods.14x01.en.srt     → Output: Blue.Bloods.14x01.hun.srt
+        tvshow.s01e01.en.srt         → Output: tvshow.s01e01.hun.srt
         movie_track4_eng_1.srt       → Output: movie_track4_1.hun.srt
 ```
 

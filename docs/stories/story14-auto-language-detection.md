@@ -27,7 +27,7 @@ Implement automatic detection of source language from subtitle filenames and con
 - `moviename.eng.srt` → Auto-detects English as source
 - `series.s01e01.en.720p.srt` → Auto-detects English as source
 - `subtitle_track4_hun_1.srt` → Auto-detects Hungarian as source
-- `Blue.Bloods.14x03.de.srt` → Auto-detects German as source
+- `tvshow.s01e03.de.srt` → Auto-detects German as source
 
 ### US-14.2: Configure Auto-Detection Behavior
 **As a** power user  
