@@ -21,12 +21,12 @@ def test_filename_cleanup():
         ("moviename.eng", "moviename"),
         ("moviename.en", "moviename"),
         ("moviename_track4_eng_1", "moviename_track4_1"),
-        ("Blue.Bloods.s14e01.eng", "Blue.Bloods.s14e01"),
-        ("Blue.Bloods.14x03.de", "Blue.Bloods.14x03"),
+        ("tvshow.s01e01.eng", "tvshow.s01e01"),
+        ("tvshow.01x03.de", "tvshow.01x03"),
         ("series.s01e01.en.720p", "series.s01e01.720p"),
         ("subtitle_track4_hun_1", "subtitle_track4_1"),
         ("movie-name-eng-2023", "movie-name-2023"),
-        ("NCIS.Hawaii.S02E01.en", "NCIS.Hawaii.S02E01"),
+        ("series.s02e01.en", "series.s02e01"),
         ("test.eng.eng", "test"),  # Multiple indicators
         ("test_en_track2_de", "test_track2"),  # Multiple different languages
         ("normal_filename", "normal_filename"),  # No language indicator
@@ -69,7 +69,7 @@ def test_output_filename_generation():
     test_cases = [
         # (input_path, expected_output_name)
         ("subtitles/moviename.eng.srt", "moviename.hu.srt"),
-        ("subtitles/Blue.Bloods.14x01.en.srt", "Blue.Bloods.14x01.hu.srt"),
+        ("subtitles/tvshow.s01e01.en.srt", "tvshow.s01e01.hu.srt"),
         ("path/to/movie_track4_eng_1.srt", "movie_track4_1.hu.srt"),
         ("test.srt", "test.hu.srt"),
     ]
