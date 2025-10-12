@@ -191,7 +191,7 @@ multi_model:
 
 # Output settings
 output:
-  suffix: "{target_lang}"  # e.g., "filename.hu.srt"
+  suffix: "hun"  # Use 3-letter code for Hungarian (filename.hun.srt)
   encoding: "utf-8"
   preserve_formatting: true
 
