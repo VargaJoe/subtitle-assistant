@@ -7,7 +7,7 @@ Add-Type -AssemblyName System.Drawing
 # Create main form
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "MarianMT Model Trainer"
-$form.Size = New-Object System.Drawing.Size(800, 700)
+$form.Size = New-Object System.Drawing.Size(800, 750)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
@@ -15,7 +15,7 @@ $form.MaximizeBox = $false
 # Create tab control
 $tabControl = New-Object System.Windows.Forms.TabControl
 $tabControl.Location = New-Object System.Drawing.Point(10, 10)
-$tabControl.Size = New-Object System.Drawing.Size(760, 640)
+$tabControl.Size = New-Object System.Drawing.Size(760, 690)
 
 # Tab 1: Train Model
 $tabTrain = New-Object System.Windows.Forms.TabPage
@@ -182,7 +182,7 @@ $y += 40
 $groupParams = New-Object System.Windows.Forms.GroupBox
 $groupParams.Text = "Training Parameters"
 $groupParams.Location = New-Object System.Drawing.Point(20, $y)
-$groupParams.Size = New-Object System.Drawing.Size(710, 100)
+$groupParams.Size = New-Object System.Drawing.Size(710, 130)
 $tabTrain.Controls.Add($groupParams)
 
 $labelEpochs = New-Object System.Windows.Forms.Label
@@ -234,8 +234,16 @@ $groupParams.Controls.Add($labelModelName)
 $textModelName = New-Object System.Windows.Forms.TextBox
 $textModelName.Location = New-Object System.Drawing.Point(370, 60)
 $textModelName.Size = New-Object System.Drawing.Size(200, 20)
-$textModelName.PlaceholderText = "Optional custom name"
 $groupParams.Controls.Add($textModelName)
+
+# Allow mismatched entry counts checkbox
+$checkAllowMismatched = New-Object System.Windows.Forms.CheckBox
+$checkAllowMismatched.Text = "Allow mismatched entry counts (use timestamp matching)"
+$checkAllowMismatched.Location = New-Object System.Drawing.Point(20, 95)
+$checkAllowMismatched.Size = New-Object System.Drawing.Size(350, 20)
+$checkAllowMismatched.Checked = $false
+$checkAllowMismatched.Visible = $true
+$groupParams.Controls.Add($checkAllowMismatched)
 
 $y += 110
 
@@ -397,7 +405,7 @@ $btnStartTraining.Add_Click({
     $pythonCmd = "python train_marian.py"
     
     if ($radioSRT.Checked) {
-        # SRT mode
+        # SRT mode - validate files first
         if ($listSourceFiles.Items.Count -eq 0 -or $listTargetFiles.Items.Count -eq 0) {
             [System.Windows.Forms.MessageBox]::Show("Please select source and target SRT files.", "Error", "OK", "Error")
             return
@@ -408,7 +416,93 @@ $btnStartTraining.Add_Click({
             return
         }
         
+        # Validate SRT file compatibility
+        $textLog.AppendText("Validating SRT files...`r`n")
+        $validationErrors = @()
+        $filesToSkip = @()
+        $indicesToRemove = @()
+        
+        for ($i = 0; $i -lt $listSourceFiles.Items.Count; $i++) {
+            $sourceFile = $listSourceFiles.Items[$i]
+            $targetFile = $listTargetFiles.Items[$i]
+            
+            try {
+                # Quick validation - check if files exist and are readable
+                if (-not (Test-Path $sourceFile)) {
+                    $validationErrors += "Source file not found: $sourceFile"
+                    continue
+                }
+                if (-not (Test-Path $targetFile)) {
+                    $validationErrors += "Target file not found: $targetFile"
+                    continue
+                }
+                
+                # Count subtitle entries (rough estimate) with timeout protection
+                try {
+                    $sourceContent = Get-Content $sourceFile -Raw -ErrorAction Stop
+                    $targetContent = Get-Content $targetFile -Raw -ErrorAction Stop
+                    
+                    $sourceEntries = ($sourceContent | Select-String -Pattern '^\d+$' -AllMatches).Matches.Count
+                    $targetEntries = ($targetContent | Select-String -Pattern '^\d+$' -AllMatches).Matches.Count
+                } catch {
+                    $validationErrors += "Error reading file content: $($sourceFile | Split-Path -Leaf) - $_"
+                    continue
+                }
+                
+                if ($sourceEntries -ne $targetEntries) {
+                    if ($checkAllowMismatched.Checked) {
+                        $textLog.AppendText("⚠️ $($sourceFile | Split-Path -Leaf) ↔ $($targetFile | Split-Path -Leaf) ($sourceEntries vs $targetEntries entries - will use timestamp matching)`r`n")
+                    } else {
+                        $filesToSkip += "$($sourceFile | Split-Path -Leaf) ($sourceEntries entries) vs $($targetFile | Split-Path -Leaf) ($targetEntries entries)"
+                        $indicesToRemove += $i
+                    }
+                } else {
+                    $textLog.AppendText("✓ $($sourceFile | Split-Path -Leaf) ↔ $($targetFile | Split-Path -Leaf) ($sourceEntries entries)`r`n")
+                }
+            } catch {
+                $validationErrors += "Error validating $($sourceFile | Split-Path -Leaf): $_"
+            }
+        }
+        
+        # Handle files to skip
+        if ($filesToSkip.Count -gt 0) {
+            $textLog.AppendText("`r`n⏭️ Skipping files with mismatched entry counts:`r`n")
+            foreach ($fileInfo in $filesToSkip) {
+                $textLog.AppendText("  • $fileInfo`r`n")
+            }
+            
+            # Remove skipped files from the lists (in reverse order to maintain indices)
+            $indicesToRemove | Sort-Object -Descending | ForEach-Object {
+                $listSourceFiles.Items.RemoveAt($_)
+                $listTargetFiles.Items.RemoveAt($_)
+            }
+            
+            if ($listSourceFiles.Items.Count -eq 0) {
+                $textLog.AppendText("`r`n❌ No valid file pairs remaining after filtering.`r`n")
+                [System.Windows.Forms.MessageBox]::Show("All SRT file pairs have mismatched entry counts. Enable 'Allow mismatched entry counts' to train with timestamp matching.", "No Valid Files", "OK", "Error")
+                return
+            }
+        }
+        
+        if ($validationErrors.Count -gt 0) {
+            $textLog.AppendText("`r`n❌ Validation failed:`r`n")
+            foreach ($validationError in $validationErrors) {
+                $textLog.AppendText("  • $validationError`r`n")
+            }
+            [System.Windows.Forms.MessageBox]::Show("SRT file validation failed. Check the log for details.", "Validation Error", "OK", "Error")
+            return
+        }
+        
+        if ($listSourceFiles.Items.Count -gt 0) {
+            $textLog.AppendText("✅ SRT files validated successfully!`r`n`r`n")
+        }
+        
         $pythonCmd += " train-srt"
+        
+        # Add mismatched entries flag if enabled
+        if ($checkAllowMismatched.Checked) {
+            $pythonCmd += " --allow-mismatched-entries"
+        }
         
         # Add source files
         $pythonCmd += " --source-files"
@@ -427,6 +521,8 @@ $btnStartTraining.Add_Click({
             [System.Windows.Forms.MessageBox]::Show("Please select a valid JSON file.", "Error", "OK", "Error")
             return
         }
+        
+        $textLog.AppendText("✅ JSON file validated: $($textJSONFile.Text | Split-Path -Leaf)`r`n`r`n")
         
         $pythonCmd += " train-json --json-file `"$($textJSONFile.Text)`""
     }
@@ -449,39 +545,93 @@ $btnStartTraining.Add_Click({
     $btnStartTraining.Enabled = $false
     $btnStartTraining.Text = "Training..."
     
-    # Execute command asynchronously
+    # Execute command asynchronously with real-time output
     try {
-        $process = Start-Process -FilePath "python" -ArgumentList $pythonCmd.Substring(7) -NoNewWindow -RedirectStandardOutput "training_output.log" -RedirectStandardError "training_error.log" -PassThru
+        # Redirect output to log files to prevent hanging
+        $script:trainingProcess = Start-Process -FilePath "python" -ArgumentList $pythonCmd.Substring(7) -RedirectStandardOutput "training_output.log" -RedirectStandardError "training_error.log" -NoNewWindow -PassThru
         
-        # Wait for completion in background
+        # Small delay to ensure process is properly started
+        Start-Sleep -Milliseconds 100
+        
+        # Monitor process in real-time
         $timer = New-Object System.Windows.Forms.Timer
-        $timer.Interval = 1000
+        $timer.Interval = 500  # Check every 500ms for better responsiveness
+        
+        $script:lastOutputLength = 0
+        
         $timer.Add_Tick({
-            if ($process.HasExited) {
-                $timer.Stop()
+            try {
+                # Check if process is still running
+                if (-not $script:trainingProcess.HasExited) {
+                    # Try to read any new output from log files
+                    if (Test-Path "training_output.log") {
+                        $currentContent = Get-Content "training_output.log" -Raw -ErrorAction SilentlyContinue
+                        if ($currentContent -and $currentContent.Length -gt $script:lastOutputLength) {
+                            $newContent = $currentContent.Substring($script:lastOutputLength)
+                            # Replace progress dots with actual output
+                            if ($textLog.Text -match '\.\s*$') {
+                                $textLog.Text = $textLog.Text -replace '\.\s*$', ''
+                            }
+                            $textLog.AppendText($newContent)
+                            $script:lastOutputLength = $currentContent.Length
+                        } else {
+                            # Show progress indicator if no new output
+                            $textLog.AppendText(".")
+                        }
+                    } else {
+                        $textLog.AppendText(".")
+                    }
+                    return
+                }
+                
+                # Process has exited - handle completion
+                $this.Stop()
                 $btnStartTraining.Enabled = $true
                 $btnStartTraining.Text = "Start Training"
                 
-                # Read output
+                # Read any remaining output
                 if (Test-Path "training_output.log") {
-                    $output = Get-Content "training_output.log" -Raw
-                    $textLog.AppendText($output)
+                    $output = Get-Content "training_output.log" -Raw -ErrorAction SilentlyContinue
+                    if ($output -and $output.Length -gt $script:lastOutputLength) {
+                        $newContent = $output.Substring($script:lastOutputLength)
+                        # Replace progress dots with actual output
+                        if ($textLog.Text -match '\.\s*$') {
+                            $textLog.Text = $textLog.Text -replace '\.\s*$', ''
+                        }
+                        $textLog.AppendText($newContent)
+                    }
                 }
                 
                 if (Test-Path "training_error.log") {
-                    $errors = Get-Content "training_error.log" -Raw
+                    $errors = Get-Content "training_error.log" -Raw -ErrorAction SilentlyContinue
                     if ($errors) {
                         $textLog.AppendText("`r`nErrors:`r`n$errors")
                     }
                 }
                 
-                if ($process.ExitCode -eq 0) {
+                try {
+                    $exitCode = $script:trainingProcess.ExitCode
+                } catch {
+                    $exitCode = -1
+                }
+                
+                # Check for success indicators in the log
+                $logContent = Get-Content "training_output.log" -Raw -ErrorAction SilentlyContinue
+                $trainingSuccessful = $logContent -match "✅ Training Complete!" -or $logContent -match "Training complete!"
+                
+                if ($exitCode -eq 0 -or $trainingSuccessful) {
                     $textLog.AppendText("`r`n✅ Training completed successfully!")
                     [System.Windows.Forms.MessageBox]::Show("Training completed successfully!", "Success", "OK", "Information")
                 } else {
-                    $textLog.AppendText("`r`n❌ Training failed. Check the log for details.")
+                    $textLog.AppendText("`r`n❌ Training failed with exit code $exitCode. Check the log for details.")
                     [System.Windows.Forms.MessageBox]::Show("Training failed. Check the log for details.", "Error", "OK", "Error")
                 }
+            } catch {
+                $this.Stop()
+                $btnStartTraining.Enabled = $true
+                $btnStartTraining.Text = "Start Training"
+                $textLog.AppendText("`r`nError monitoring training: $_")
+                [System.Windows.Forms.MessageBox]::Show("Error monitoring training process: $_", "Monitoring Error", "OK", "Error")
             }
         })
         $timer.Start()

@@ -152,3 +152,8 @@ output*/
 temp/
 subtitles*/
 *sample*
+
+# MarianMT training artifacts
+trained_models/
+training_output.log
+training_error.log

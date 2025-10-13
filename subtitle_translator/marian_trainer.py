@@ -129,7 +129,8 @@ class MarianTrainer:
         self, 
         source_srt_files: List[Path], 
         target_srt_files: List[Path],
-        genre: Optional[str] = None
+        genre: Optional[str] = None,
+        allow_mismatched_entries: bool = False
     ) -> List[TrainingDataPair]:
         """
         Prepare training data from pairs of SRT files.
@@ -138,6 +139,8 @@ class MarianTrainer:
             source_srt_files: List of source language SRT files
             target_srt_files: List of target language SRT files
             genre: Optional genre label for the data
+            allow_mismatched_entries: If True, allow files with different entry counts
+                                   and match entries by timestamp overlap
             
         Returns:
             List of TrainingDataPair objects
@@ -158,14 +161,26 @@ class MarianTrainer:
             target_entries = parser.parse_file(target_file)
             
             if len(source_entries) != len(target_entries):
-                self.logger.warning(
-                    f"Mismatch in entry count: {source_file.name} ({len(source_entries)}) "
-                    f"vs {target_file.name} ({len(target_entries)}). Skipping this pair."
-                )
-                continue
+                if allow_mismatched_entries:
+                    self.logger.info(
+                        f"Entry count mismatch: {source_file.name} ({len(source_entries)}) "
+                        f"vs {target_file.name} ({len(target_entries)}). Using timestamp matching."
+                    )
+                    # Match entries by timestamp overlap
+                    matched_pairs = self._match_entries_by_timestamp(source_entries, target_entries)
+                    self.logger.info(f"Found {len(matched_pairs)} timestamp-matched pairs")
+                else:
+                    self.logger.warning(
+                        f"Mismatch in entry count: {source_file.name} ({len(source_entries)}) "
+                        f"vs {target_file.name} ({len(target_entries)}). Skipping this pair."
+                    )
+                    continue
+            else:
+                # Exact matching for equal counts
+                matched_pairs = list(zip(source_entries, target_entries))
             
-            # Create pairs
-            for source_entry, target_entry in zip(source_entries, target_entries):
+            # Create training pairs from matched entries
+            for source_entry, target_entry in matched_pairs:
                 # Clean and prepare text
                 source_text = source_entry.text.strip()
                 target_text = target_entry.text.strip()
@@ -179,6 +194,69 @@ class MarianTrainer:
         
         self.logger.info(f"Prepared {len(data_pairs)} training pairs")
         return data_pairs
+    
+    def _match_entries_by_timestamp(
+        self, 
+        source_entries: List, 
+        target_entries: List
+    ) -> List[tuple]:
+        """
+        Match subtitle entries between source and target files based on timestamp overlap.
+        
+        Args:
+            source_entries: List of source subtitle entries
+            target_entries: List of target subtitle entries
+            
+        Returns:
+            List of (source_entry, target_entry) tuples for matched entries
+        """
+        from datetime import timedelta
+        
+        matched_pairs = []
+        tolerance = timedelta(seconds=1)  # Allow 1 second tolerance for matching
+        
+        # Sort entries by start time for efficient matching
+        source_sorted = sorted(source_entries, key=lambda e: e.start_time)
+        target_sorted = sorted(target_entries, key=lambda e: e.start_time)
+        
+        target_idx = 0
+        
+        for source_entry in source_sorted:
+            # Find the best matching target entry
+            best_match = None
+            best_overlap = timedelta(0)
+            
+            # Look through target entries that could potentially match
+            while target_idx < len(target_sorted):
+                target_entry = target_sorted[target_idx]
+                
+                # If target entry starts too late, break (since lists are sorted)
+                if target_entry.start_time > source_entry.end_time + tolerance:
+                    break
+                
+                # Check for overlap
+                overlap_start = max(source_entry.start_time, target_entry.start_time)
+                overlap_end = min(source_entry.end_time, target_entry.end_time)
+                
+                if overlap_start <= overlap_end:
+                    # There is overlap
+                    overlap_duration = overlap_end - overlap_start
+                    if overlap_duration > best_overlap:
+                        best_overlap = overlap_duration
+                        best_match = target_entry
+                
+                # If target entry ends before source starts, move to next target
+                if target_entry.end_time + tolerance < source_entry.start_time:
+                    target_idx += 1
+                else:
+                    # Target entry could still match future source entries
+                    break
+            
+            # If we found a match with sufficient overlap, add it
+            if best_match and best_overlap >= timedelta(milliseconds=500):  # At least 0.5 seconds overlap
+                matched_pairs.append((source_entry, best_match))
+        
+        return matched_pairs
     
     def prepare_data_from_json(self, json_file: Path) -> List[TrainingDataPair]:
         """
@@ -286,7 +364,7 @@ class MarianTrainer:
             logging_steps=self.training_config.logging_steps,
             save_steps=self.training_config.save_steps,
             eval_steps=self.training_config.eval_steps,
-            evaluation_strategy="steps" if val_dataset else "no",
+            eval_strategy="steps" if val_dataset else "no",
             save_strategy="steps",
             load_best_model_at_end=True if val_dataset else False,
             metric_for_best_model="eval_loss" if val_dataset else None,
