@@ -18,14 +18,34 @@ from subtitle_translator.marian_trainer import MarianTrainer, ModelManager, Trai
 def setup_logging(verbose: bool = False):
     """Setup logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler('training.log')
-        ]
-    )
+
+    # Clear any existing handlers
+    logging.getLogger().handlers.clear()
+
+    # Create formatters
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+
+    # Output log handler (all messages)
+    output_handler = logging.FileHandler('training_output.log')
+    output_handler.setLevel(logging.DEBUG)
+    output_handler.setFormatter(formatter)
+
+    # Error log handler (only warnings and above)
+    error_handler = logging.FileHandler('training_error.log')
+    error_handler.setLevel(logging.WARNING)
+    error_handler.setFormatter(formatter)
+
+    # Configure root logger
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(console_handler)
+    logger.addHandler(output_handler)
+    logger.addHandler(error_handler)
 
 
 def list_models(args):
@@ -167,7 +187,8 @@ def train_from_srt(args):
     training_data = trainer.prepare_data_from_srt_pairs(
         source_files,
         target_files,
-        genre=config.marian_training.genre
+        genre=config.marian_training.genre,
+        allow_mismatched_entries=getattr(args, 'allow_mismatched_entries', False)
     )
     
     if not training_data:
@@ -361,6 +382,7 @@ Examples:
     train_srt_parser.add_argument('--output-dir', help='Output directory for trained models')
     train_srt_parser.add_argument('--resume-from', help='Resume training from checkpoint')
     train_srt_parser.add_argument('--config', '-c', help='Configuration YAML file')
+    train_srt_parser.add_argument('--allow-mismatched-entries', action='store_true', help='Allow training with SRT files that have different entry counts (uses timestamp matching)')
     
     # Train from JSON command
     train_json_parser = subparsers.add_parser('train-json', help='Train model from JSON data')

@@ -106,17 +106,43 @@ python train_marian.py delete marian-subtitle-en-hu-drama --yes
 The best way to train is using aligned SRT files (source and target language subtitles for the same content).
 
 **Requirements:**
-- Source and target SRT files must have the same number of entries
-- Entries should be aligned (same timestamps)
-- Files should be in the same order when provided
+- Source and target SRT files must have the **same number of entries**
+- Entries should be **aligned** (same timestamps and corresponding content)
+- Files should be provided in **matching pairs** (source1 → target1, source2 → target2, etc.)
 
 **Example Structure:**
 ```
 training_data/
-├── movie1.en.srt    → movie1.hu.srt
-├── movie2.en.srt    → movie2.hu.srt
+├── movie1.en.srt    → movie1.hu.srt  (must have same entry count)
+├── movie2.en.srt    → movie2.hu.srt  (must have same entry count)
 ├── tvshow.s01e01.en.srt → tvshow.s01e01.hu.srt
 └── ...
+```
+
+**Common Issues:**
+
+❌ **Entry Count Mismatch:**
+```
+Source file: movie.en.srt (950 entries)
+Target file: movie.hu.srt (780 entries)
+Result: Training fails with "Mismatch in entry count" error
+```
+
+✅ **Solution:** Ensure SRT files are properly aligned:
+- Use subtitles from the same video source
+- Verify both files have identical timestamps
+- Check that no subtitle entries are missing or extra
+
+❌ **Wrong File Order:**
+```
+--source-files movie1.en.srt movie2.en.srt
+--target-files movie2.hu.srt movie1.hu.srt  ← Wrong order!
+```
+
+✅ **Solution:** Match source and target files by position:
+```
+--source-files movie1.en.srt movie2.en.srt
+--target-files movie1.hu.srt movie2.hu.srt  ← Correct order
 ```
 
 **Tips:**
@@ -282,48 +308,71 @@ python main.py comedy-show.srt --config config-comedy.yaml
 
 ## Troubleshooting
 
-### Out of Memory Errors
+### GUI Issues
 
-**Reduce batch size:**
-```bash
-python train_marian.py train-srt ... --batch-size 4
-```
+**❌ "Nothing happens when I click Start Training"**
+- **Cause:** SRT files have mismatched entry counts
+- **Solution:** Use the GUI's new validation - it will check files before training starts
+- **Check:** Look for "Entry count mismatch" messages in the log
 
-**Enable 8-bit training:**
-In `config.yaml`:
-```yaml
-marian_training:
-  use_8bit: true
-```
+**❌ "Training button stays disabled"**
+- **Cause:** Previous training session didn't complete properly
+- **Solution:** Close and restart the GUI, or check Task Manager for stuck Python processes
 
-### Poor Translation Quality
+**❌ "No progress shown during training"**
+- **Cause:** GUI redirects output to log files for stability
+- **Solution:** Monitor `training.log` file in real-time, or check Task Manager for Python CPU usage
+- **Note:** Training can take 1-12 hours depending on hardware and data size
 
-**Common causes:**
-- Insufficient training data (need 3,000+ pairs)
-- Too few epochs (try 3-5)
-- Mismatched genres
-- Poor quality source translations
+### SRT File Issues
 
-**Solutions:**
-- Add more training data
-- Increase epochs to 5
-- Train on genre-specific data
-- Verify source translations are high quality
+**❌ "Mismatch in entry count" error**
+- **Cause:** Source and target SRT files have different numbers of subtitle entries
+- **Solution:** 
+  - Ensure SRT files are from the same video
+  - Check for missing or extra subtitle entries
+  - Use subtitle editing software to align entries
 
-### Training Too Slow
+**❌ "No training data prepared"**
+- **Cause:** All SRT file pairs were rejected due to mismatches
+- **Solution:** Verify all source/target file pairs have matching entry counts
 
-**Solutions:**
-- Use GPU instead of CPU
-- Increase batch size (if memory allows)
-- Reduce validation frequency (`eval_steps`)
-- Use fewer epochs initially
+### Training Issues
 
-### Model Not Improving
+**❌ "Out of Memory" errors**
+- **Cause:** Insufficient RAM/VRAM for training parameters
+- **Solutions:**
+  - Reduce batch size: `--batch-size 4`
+  - Enable 8-bit training in config: `use_8bit: true`
+  - Use CPU training (slower but uses less memory)
 
-**Check:**
-- Training loss should decrease
-- Validation loss should decrease (but not diverge from training loss)
-- Try different learning rates (3e-5, 5e-5, 7e-5)
+**❌ Poor translation quality**
+- **Common causes:**
+  - Insufficient training data (need 3,000+ pairs)
+  - Too few epochs (try 3-5)
+  - Mismatched genres
+  - Poor quality source translations
+- **Solutions:**
+  - Add more training data
+  - Increase epochs to 5
+  - Train on genre-specific data
+  - Verify source translations are high quality
+
+**❌ Training too slow**
+- **Solutions:**
+  - Use GPU instead of CPU
+  - Increase batch size (if memory allows)
+  - Reduce validation frequency (`eval_steps`)
+  - Use fewer epochs initially
+
+**❌ Model not improving**
+- **Check:**
+  - Training loss should decrease over time
+  - Validation loss should decrease (but not diverge too much from training loss)
+- **Try:**
+  - Different learning rates (3e-5, 5e-5, 7e-5)
+  - More training data
+  - Different batch sizes
 
 ## Example Workflow
 
