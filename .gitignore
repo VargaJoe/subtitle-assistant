@@ -157,3 +157,4 @@ subtitles*/
 trained_models/
 training_output.log
 training_error.log
+test.eng.progress

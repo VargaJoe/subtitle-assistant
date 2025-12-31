@@ -81,16 +81,19 @@ class MarianClient:
             ("es", "hu"): "Helsinki-NLP/opus-mt-es-hu",
             ("ru", "hu"): "Helsinki-NLP/opus-mt-ru-hu",
             ("uk", "hu"): "Helsinki-NLP/opus-mt-uk-hu",
-            ("zh", "hu"): "Helsinki-NLP/opus-mt-zh-hu",
+            # ("zh", "hu"): "Helsinki-NLP/opus-mt-zh-hu",  # Model does not exist
             ("ja", "hu"): "Helsinki-NLP/opus-mt-ja-hu",
             ("ko", "hu"): "Helsinki-NLP/opus-mt-ko-hu",
+            # Chinese language pairs
+            ("zh", "en"): "Helsinki-NLP/opus-mt-zh-en",
+            ("en", "zh"): "Helsinki-NLP/opus-mt-en-zh",
             # Hungarian as source to those languages
             ("hu", "de"): "Helsinki-NLP/opus-mt-hu-de",
             ("hu", "fr"): "Helsinki-NLP/opus-mt-hu-fr",
             ("hu", "es"): "Helsinki-NLP/opus-mt-hu-es",
             ("hu", "ru"): "Helsinki-NLP/opus-mt-hu-ru",
             ("hu", "uk"): "Helsinki-NLP/opus-mt-hu-uk",
-            ("hu", "zh"): "Helsinki-NLP/opus-mt-hu-zh",
+            # ("hu", "zh"): "Helsinki-NLP/opus-mt-hu-zh",  # Model does not exist
             ("hu", "ja"): "Helsinki-NLP/opus-mt-hu-ja",
             ("hu", "ko"): "Helsinki-NLP/opus-mt-hu-ko",
         }
@@ -136,7 +139,9 @@ class MarianClient:
     
     def _get_cache_dir(self) -> Path:
         """Get cache directory for model files."""
-        cache_dir = Path.home() / ".cache" / "subtitle-translator" / "marianmt"
+        # Use project-relative cache directory instead of system home
+        project_root = Path(__file__).parent.parent
+        cache_dir = project_root / "trained_models" / "cache" / "marianmt"
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir
     
