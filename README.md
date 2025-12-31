@@ -14,7 +14,7 @@ While mainstream perception often views subtitles as some kind of luxury or conv
 
 **MarianMT** is our **primary recommendation** for production subtitle translation, offering the best balance of speed, quality, and reliability.
 
-> **Note:** Only English→Hungarian (EN→HU) translation has been thoroughly tested. MarianMT supports many other language pairs (e.g., German→Hungarian, Japanese→Hungarian, etc.), but their translation quality is untested and may vary. You can specify any supported language pair using the `--source`, `--target`, and `--model` parameters.
+> **Note:** English→Hungarian (EN→HU) and Chinese↔English (ZH↔EN) translations have been tested. MarianMT supports many other language pairs (e.g., German→Hungarian, Japanese→Hungarian, etc.), but their translation quality is untested and may vary. You can specify any supported language pair using the `--source`, `--target`, and `--model` parameters.
 
 ### Key Features
 - ⚡ **Ultra-Fast**: 40x faster than Ollama (0.14s vs 5-6s per entry)
@@ -22,7 +22,7 @@ While mainstream perception often views subtitles as some kind of luxury or conv
 - 🎭 **Smart Detection**: Automatically distinguishes dialogue from cross-entry sentences
 - ⏱️ **Timing Preserved**: Maintains original subtitle timing with proportional text distribution
 - 🖥️ **Local Processing**: No internet required, works completely offline
-- 💾 **Auto-Model Management**: Downloads and caches models automatically
+- 💾 **Auto-Model Management**: Downloads and caches models automatically (project-relative cache)
 - 🔄 **GPU Acceleration**: CUDA support with CPU fallback
 
 ### Quick Start
@@ -30,9 +30,20 @@ While mainstream perception often views subtitles as some kind of luxury or conv
 # English to Hungarian (tested)
 python main.py "movie.srt" --backend marian --source en --target hu
 
+# Chinese to English (tested)
+python main.py "movie.srt" --backend marian --source zh --target en
+
+# English to Chinese (tested)
+python main.py "movie.srt" --backend marian --source en --target zh
+
 # Other language pairs (quality untested)
 python main.py "movie.srt" --backend marian --source ja --target hu
+
+# For unsupported language pairs (e.g., Chinese→Hungarian)
+python main.py "movie.srt" --backend ollama --source zh --target hu
 ```
+
+> **Note:** MarianMT only supports language pairs with available pre-trained models. If your language pair is not supported, use the Ollama backend instead.
 
 > **Tip:** For most common language pairs, you only need to set `--source` and `--target` (the app will select the correct MarianMT model automatically). Use `--model` only if you want to override with a custom or non-standard model. Translation quality may depend on the language pair and subtitle style. You can tweak results using parameters:
 > - `--cross-entry-detection` or `--no-cross-entry-detection`
@@ -63,13 +74,51 @@ python main.py --help
 ### MarianMT Backend (Recommended)
 - **Best Available Solution:** Reliable translation quality (~80-90% satisfactory results).
 - **Known Limitations:** May struggle with slang, formal/informal consistency, and rare unclear outputs.
-- **Languages:** EN↔HU (Helsinki-NLP).
-- **Model:** Helsinki-NLP/opus-mt-en-hu (484MB, auto-downloaded).
+- **Languages:** EN↔HU (tested), ZH↔EN (tested), DE↔HU, FR↔HU, ES↔HU, RU↔HU, UK↔HU, JA↔HU, KO↔HU.
+- **Model:** Helsinki-NLP/opus-mt-* models (auto-downloaded to project cache).
 
-### Ollama Backend (Experimental)
-- **Warning:** Extensive testing showed poor translation quality, not suitable for production.
-- **Best for:** Experimental research, custom AI model exploration.
+### Ollama Backend (For Unsupported Language Pairs)
+- **Use Case:** Required for language pairs not supported by MarianMT (e.g., Chinese→Hungarian, Arabic→Hungarian).
+- **Warning:** Extensive testing showed poor translation quality for EN↔HU, not suitable for production.
+- **Best for:** Experimental research, custom AI model exploration, and unsupported language pairs.
 - **Cons:** Slower, requires installation, experimental status.
+
+## 🎓 Train Custom Models
+
+**NEW!** Train your own MarianMT models optimized for specific genres and subtitle styles!
+
+### Why Train Custom Models?
+- **Genre-specific optimization**: Drama, comedy, action, sci-fi, etc.
+- **Better consistency**: Maintain character voices and terminology
+- **Domain adaptation**: Technical terms, slang, idioms
+- **Quality improvement**: Fine-tune for your specific use case
+
+### Quick Start with GUI
+```powershell
+# Launch the PowerShell GUI
+.\train_marian_gui.ps1
+```
+
+### CLI Training
+```bash
+# Train from SRT file pairs
+python train_marian.py train-srt \
+  --source en --target hu \
+  --genre drama \
+  --source-files movie1.en.srt movie2.en.srt \
+  --target-files movie1.hu.srt movie2.hu.srt
+
+# List trained models
+python train_marian.py list
+
+# Use trained model
+# Update config.yaml: marian.model = "./trained_models/your-model"
+python main.py movie.srt --backend marian
+```
+
+📖 **Documentation**: 
+- [Quick Start Guide](docs/TRAINING_QUICK_START.md) - Get started in minutes
+- [Full Training Guide](docs/MARIANMT_TRAINING_GUIDE.md) - Complete documentation
 
 ## 📚 Advanced Features
 

@@ -55,6 +55,40 @@ class MarianSettings:
 
 
 @dataclass
+class MarianTrainingSettings:
+    """Settings for training custom MarianMT models."""
+    # Base model to fine-tune from
+    base_model: str = "Helsinki-NLP/opus-mt-en-hu"
+    
+    # Training parameters
+    learning_rate: float = 5e-5
+    batch_size: int = 8
+    num_epochs: int = 3
+    warmup_steps: int = 500
+    weight_decay: float = 0.01
+    max_grad_norm: float = 1.0
+    
+    # Data parameters
+    max_source_length: int = 128
+    max_target_length: int = 128
+    validation_split: float = 0.1
+    
+    # Output settings
+    output_dir: str = "./trained_models"
+    save_steps: int = 500
+    eval_steps: int = 500
+    logging_steps: int = 100
+    
+    # Genre-specific settings
+    genre: str = "general"  # "general", "drama", "comedy", "action", "scifi", "documentary", etc.
+    
+    # Advanced settings
+    use_8bit: bool = False  # Use 8-bit quantization for reduced memory
+    gradient_checkpointing: bool = True  # Save memory during training
+    fp16: bool = True  # Use mixed precision training
+
+
+@dataclass
 class ModelSettings:
     """Settings for individual models in multi-model architecture."""
     model: str = "gemma3:latest"
@@ -154,6 +188,7 @@ class Config:
     
     # MarianMT settings
     marian: MarianSettings = field(default_factory=MarianSettings)
+    marian_training: MarianTrainingSettings = field(default_factory=MarianTrainingSettings)
     
     # Tone and style settings
     tone: ToneSettings = field(default_factory=ToneSettings)
@@ -187,6 +222,8 @@ class Config:
             self.hungarian = HungarianSettings()
         if not isinstance(self.marian, MarianSettings):
             self.marian = MarianSettings()
+        if not isinstance(self.marian_training, MarianTrainingSettings):
+            self.marian_training = MarianTrainingSettings()
         if not isinstance(self.multi_model, MultiModelSettings):
             self.multi_model = MultiModelSettings()
             

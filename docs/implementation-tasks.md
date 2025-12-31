@@ -1,8 +1,149 @@
 # Implementation Tasks
 
+---
+
+## In-Progress Stories
+
+Currently no stories in progress.
+
+---
+
+## Planned Stories
+
+### Story 14 - Automatic Language Detection
+- [ ] **Phase 1: Filename-Based Detection**
+  - [ ] Implement language code extraction from filenames (.eng, .en, _eng, etc.)
+  - [ ] Support both 2-letter (ISO 639-1) and 3-letter (ISO 639-2/3) codes
+  - [ ] Handle various separator patterns (`.`, `_`, `-`)
+  - [ ] Integrate with Config system (auto_detect_source_language setting)
+  - [ ] Add CLI flags: `--auto-detect-language` and `--no-auto-detect`
+  - [ ] Update batch processing script with auto-detection
+- [ ] **Phase 2: Content-Based Detection**
+  - [ ] Research and select detection library (langdetect, langid, fasttext)
+  - [ ] Implement content-based detection with confidence threshold
+  - [ ] Add hybrid detection (filename + content validation)
+  - [ ] Optimize performance with intelligent sampling
+  - [ ] Cache detection results in progress files
+- [ ] **Phase 3: User Experience**
+  - [ ] Add informative logging for detected languages
+  - [ ] Create Auto-Detection User Guide
+  - [ ] Comprehensive test coverage
+  - [ ] Validation and fallback behavior
+- [ ] See details: [story14-auto-language-detection.md](stories/story14-auto-language-detection.md)
+
+### Story 15 - Simple PowerShell GUI
+- [ ] **Phase 1: Basic GUI Framework**
+  - [ ] Create gui_translate.ps1 using Windows Forms/WPF
+  - [ ] Implement operation selection (Translate All, Translate Selected, Reformat)
+  - [ ] Add settings configuration UI (folders, languages, options)
+  - [ ] Settings persistence between sessions
+- [ ] **Phase 2: File Selection and Browsing**
+  - [ ] Implement folder browser dialogs
+  - [ ] Add drag-and-drop support for folders and files
+  - [ ] File selection for single-file mode with multi-select
+  - [ ] Recent folders list and file preview
+- [ ] **Phase 3: Translation Process Management**
+  - [ ] Real-time progress tracking with progress bar
+  - [ ] Live log viewer with colorized output
+  - [ ] Process control (Start, Stop, Pause, Resume)
+  - [ ] Integration with batch script and progress files
+- [ ] **Phase 4: Results and Error Handling**
+  - [ ] Results summary dialog with statistics
+  - [ ] User-friendly error messages and troubleshooting
+  - [ ] "Open Output Folder" and "View Error Log" buttons
+  - [ ] Help documentation and tooltips
+- [ ] **Phase 5: Polish and Distribution**
+  - [ ] UI/UX improvements and theming
+  - [ ] Advanced features (remember position, keyboard shortcuts)
+  - [ ] Create standalone executable with ps2exe
+  - [ ] Testing on Windows 10/11, user manual with screenshots
+- [ ] See details: [story15-simple-gui.md](stories/story15-simple-gui.md)
+
+### Story 16 - Folder-Specific Configuration Overrides
+- [ ] **Phase 1: Configuration Discovery**
+  - [ ] Create ConfigResolver class for config file discovery
+  - [ ] Walk directory tree to find .subtitle-config.yaml files
+  - [ ] Implement config hierarchy and caching
+  - [ ] Support multiple naming conventions
+- [ ] **Phase 2: Configuration Merging**
+  - [ ] Implement deep merge algorithm for nested configs
+  - [ ] Define override precedence (CLI > Folder > Parent > Root)
+  - [ ] Optimize config loading with caching
+  - [ ] Handle null values and list merging strategies
+- [ ] **Phase 3: Integration with Translator**
+  - [ ] Update SubtitleTranslator to use ConfigResolver
+  - [ ] Integrate with batch processing
+  - [ ] Update CLI with --show-config and --ignore-folder-configs flags
+  - [ ] Update PowerShell scripts with config preview
+- [ ] **Phase 4: Configuration Validation**
+  - [ ] Implement validation rules for overrides
+  - [ ] Create config linting tool (lint_config.py)
+  - [ ] Add migration utilities for config updates
+  - [ ] Backup and restore functionality
+- [ ] **Phase 5: Documentation and Testing**
+  - [ ] Create "Folder Configuration Guide"
+  - [ ] Update existing documentation
+  - [ ] Comprehensive test coverage for precedence and merging
+  - [ ] Performance tests for large directory trees
+- [ ] See details: [story16-folder-config-overrides.md](stories/story16-folder-config-overrides.md)
+
+### Story 10 - MarianMT Hybrid Multi-Model Architecture
+- [ ] Integrate MarianMT as Translation Model within multi-model pipeline
+- [ ] Create Context Enhancer step for LLM refinement of MarianMT output
+- [ ] Implement hybrid mode: `--backend hybrid`
+- [ ] Combine 40x speed improvement with context awareness and validation
+- [ ] Expected: 10-20x faster than current multi-model with superior quality
+- [ ] See details: [story10-marianmt-hybrid-architecture.md](stories/story10-marianmt-hybrid-architecture.md)
+
+### Story 11 - Pure MarianMT Production Pipeline
+- [ ] Optimize MarianMT for large-scale production subtitle translation
+- [ ] Implement directory batch processing and multi-file operations
+- [ ] Add production-grade quality enhancements and post-processing
+- [ ] Build automated workflow for processing entire seasons
+- [ ] Expected: Process full seasons in minutes with 90%+ quality
+- [ ] See details: [story11-pure-marianmt-production.md](stories/story11-pure-marianmt-production.md)
+
+### Story 03 - Speech-to-Text Extraction
+- [ ] Hungarian Whisper integration
+- [ ] Audio file processing pipeline
+- [ ] SRT generation from audio
+- [ ] Quality validation for generated subtitles
+
+### Story 08 - Accessibility Features
+- [ ] Sound effect descriptions
+- [ ] Speaker identification tags
+- [ ] Enhanced formatting for hearing-impaired
+- [ ] Audio cue translations
+
+### Story 04 - Multi-Language Support
+- [ ] Language detection system (see Story 14)
+- [ ] Multiple source/target language pairs
+- [ ] Model routing for different languages
+- [ ] CLI enhancements for language selection
+
+### Story 05 - GUI Application (SUPERSEDED by Story 15)
+- [ ] ~~PyQt6 graphical interface~~ (replaced with PowerShell GUI)
+- [ ] ~~Drag-and-drop file handling~~ (included in Story 15)
+- [ ] ~~Real-time translation preview~~ (included in Story 15)
+- [ ] ~~Settings management UI~~ (included in Story 15)
+
+### Story 06 - Advanced Subtitle Formats
+- [ ] WebVTT format support
+- [ ] ASS format support
+- [ ] Format conversion utilities
+- [ ] Formatting preservation
+
+### Story 07 - Audio-Based Enhancements
+- [ ] Audio timing analysis
+- [ ] Speaker detection
+- [ ] Speech rate optimization
+- [ ] Audio-subtitle synchronization
+
+---
+
 ## Completed Stories 
 
-### Story 01 - SRT Translation (✅ COMPLETED)
+### Story 01 - SRT Translation
 - [x] SRT parser with timecode preservation
 - [x] Ollama AI integration for Hungarian translation
 - [x] Context-aware translation pipeline
@@ -11,7 +152,7 @@
 - [x] Error handling and retry logic
 - [x] Production validation (21 episodes)
 
-### Story 1.5 - Resume and Progress Management (✅ COMPLETED)
+### Story 1.5 - Resume and Progress Management
 - [x] Progress persistence with .progress files
 - [x] Resume/restart CLI options
 - [x] Ctrl+C interruption handling
@@ -20,15 +161,14 @@
 - [x] Batch mode performance optimization (35% faster)
 - [x] Atomic operations and error recovery
 
-### Story 02A - Overlap Enhancement (✅ COMPLETED)
+### Story 02A - Overlap Enhancement
 - [x] Configurable overlap between batches
 - [x] Overlap reassessment feature
 - [x] CLI integration (--overlap-size, --no-overlap-reassess)
 - [x] Context continuity across boundaries
 - [x] Quality improvement validation
 
-### Story 02 - Multi-Model Architecture (✅ COMPLETED)
-**Status**: Extensive development completed but translation quality unsatisfactory
+### Story 02 - Multi-Model Architecture
 - [x] Context Model (story analysis and character profiling)
 - [x] Translation Model (context-aware primary translation)
 - [x] Technical Validator (quality scoring and validation)
@@ -41,16 +181,15 @@
 - [x] Comprehensive documentation (README + Multi-Model Guide)
 - [x] Configuration presets and troubleshooting guides
 - [x] Performance matrices and best practices documentation
-- [x] **Final Result**: Despite extensive prompt engineering and testing, Ollama models (both translation-only and multi-model pipeline) did NOT produce satisfactory translations. Quality was consistently poor and not suitable for production use.
 
-### Story 09 - MarianMT Alternative Translation Backend (✅ COMPLETED & PRODUCTION READY)
-**Status**: Fully implemented with **40x speed improvement** and best available translation quality (80-90% satisfactory)
+### Story 09 - MarianMT Alternative Translation Backend 
 - [x] **Core Implementation**:
   - [x] MarianMT backend integration (Helsinki-NLP/opus-mt-en-hu model)
   - [x] Backend selection system (`--backend marian` vs `--backend ollama`)
   - [x] GPU acceleration with CPU fallback
   - [x] Automatic model download and caching
   - [x] Error handling and retry logic
+  - [x] **Language Pair Support**: Helsinki-NLP/opus-mt-zh-en and opus-mt-en-zh models added for Chinese support. Cache directory changed to project-relative trained_models/cache/marianmt instead of system home directory. Only pre-trained model pairs supported (zh-hu not available, use Ollama)
 - [x] **Advanced Multi-line Processing**:
   - [x] Smart multiline strategy with intelligent sentence detection
   - [x] Three configurable strategies: `smart`, `preserve_lines`, `join_all`
@@ -83,46 +222,36 @@
   - [x] Updated .gitignore patterns for output management
   - [x] Complete README repositioning MarianMT as primary backend
   - [x] Model license documentation and attribution
-- [x] **Final Achievement**: MarianMT provides the best available subtitle translation quality among tested backends
 
-### Story 09B - HTML Formatting Preservation (✅ COMPLETED)
-**Discovered**: During MarianMT development when HTML tags were being corrupted
+### Story 09B - HTML Formatting Preservation
 - [x] Identified HTML corruption issue: `<i>Previously...</i>` → malformed outputs
 - [x] Implemented HTML tag extraction before translation
 - [x] Added HTML tag restoration after translation
 - [x] Created test scripts for HTML formatting validation
 - [x] Verified fix with user-reported examples
-- [x] **Result**: All HTML formatting now properly preserved in MarianMT translations
 
-### Story 09C - Cross-Entry Sentence Optimization (✅ COMPLETED)
-**Discovered**: During testing when subtitle sentences spanned multiple timestamps
+### Story 09C - Cross-Entry Sentence Optimization
 - [x] Analyzed subtitle timing patterns and sentence boundaries
 - [x] Developed cross-entry sentence detection algorithms
 - [x] Implemented intelligent grouping vs dialogue distinction
 - [x] Created proportional text distribution system
 - [x] Added comprehensive test coverage for edge cases
-- [x] **Result**: MarianMT now handles complex cross-entry sentences flawlessly
 
-### Story 09D - Backend Architecture Refactoring (✅ COMPLETED)
-**Discovered**: Need for clean separation between translation backends
+### Story 09D - Backend Architecture Refactoring
 - [x] Refactored translator.py for backend abstraction
 - [x] Created unified translation client interface
 - [x] Implemented backend-specific feature detection
 - [x] Added comprehensive backend switching tests
 - [x] Updated configuration system for backend selection
-- [x] **Result**: Clean, maintainable architecture supporting multiple backends
 
-### Story 09E - Production Documentation Overhaul (✅ COMPLETED)
-**Discovered**: Need for comprehensive production-ready documentation
+### Story 09E - Production Documentation Overhaul
 - [x] Complete README.md rewrite positioning MarianMT as primary backend
 - [x] Created detailed MarianMT User Guide with production examples
 - [x] Developed neutral Batch Processing Guide
 - [x] Added model licensing and attribution documentation
 - [x] Created PowerShell automation scripts for batch processing
-- [x] **Result**: Production-ready documentation suite for enterprise use
 
-### Story 12 - Subtitle Row Splitting (✅ COMPLETED)
-**Status**: Configurable row splitting for subtitle viewer compatibility
+### Story 12 - Subtitle Row Splitting
 - [x] **Configuration System**:
   - [x] Added max_row_length (default: 42) and row_split_method (default: 'even') to config.yaml
   - [x] Enhanced Config dataclass with output section for subtitle formatting
@@ -142,165 +271,13 @@
   - [x] Algorithm improvement: Fixed splitting from (23,34) chars imbalance to (30,27) chars near-perfect balance
   - [x] Best word boundary selection to minimize line length differences
   - [x] Maintains readability while ensuring compatibility with non-wrapping subtitle viewers
-- [x] **Result**: Production-ready row splitting with dual implementation for both translation and reformatting workflows
 
-
-## In-Progress Stories
-
-Currently no stories in progress.
-
-## Planned Stories
-
-### Story 14 - Automatic Language Detection
-**Priority**: High  
-**Status**: Planned  
-**Description**: Automatic detection of source language from filenames and content
-- [ ] **Phase 1: Filename-Based Detection**
-  - [ ] Implement language code extraction from filenames (.eng, .en, _eng, etc.)
-  - [ ] Support both 2-letter (ISO 639-1) and 3-letter (ISO 639-2/3) codes
-  - [ ] Handle various separator patterns (`.`, `_`, `-`)
-  - [ ] Integrate with Config system (auto_detect_source_language setting)
-  - [ ] Add CLI flags: `--auto-detect-language` and `--no-auto-detect`
-  - [ ] Update batch processing script with auto-detection
-- [ ] **Phase 2: Content-Based Detection**
-  - [ ] Research and select detection library (langdetect, langid, fasttext)
-  - [ ] Implement content-based detection with confidence threshold
-  - [ ] Add hybrid detection (filename + content validation)
-  - [ ] Optimize performance with intelligent sampling
-  - [ ] Cache detection results in progress files
-- [ ] **Phase 3: User Experience**
-  - [ ] Add informative logging for detected languages
-  - [ ] Create Auto-Detection User Guide
-  - [ ] Comprehensive test coverage
-  - [ ] Validation and fallback behavior
-- [ ] See details: [story14-auto-language-detection.md](stories/story14-auto-language-detection.md)
-
-### Story 15 - Simple PowerShell GUI
-**Priority**: Medium  
-**Status**: Planned  
-**Description**: Fast and easy-to-use PowerShell-based GUI wrapping batch processing
-- [ ] **Phase 1: Basic GUI Framework**
-  - [ ] Create gui_translate.ps1 using Windows Forms/WPF
-  - [ ] Implement operation selection (Translate All, Translate Selected, Reformat)
-  - [ ] Add settings configuration UI (folders, languages, options)
-  - [ ] Settings persistence between sessions
-- [ ] **Phase 2: File Selection and Browsing**
-  - [ ] Implement folder browser dialogs
-  - [ ] Add drag-and-drop support for folders and files
-  - [ ] File selection for single-file mode with multi-select
-  - [ ] Recent folders list and file preview
-- [ ] **Phase 3: Translation Process Management**
-  - [ ] Real-time progress tracking with progress bar
-  - [ ] Live log viewer with colorized output
-  - [ ] Process control (Start, Stop, Pause, Resume)
-  - [ ] Integration with batch script and progress files
-- [ ] **Phase 4: Results and Error Handling**
-  - [ ] Results summary dialog with statistics
-  - [ ] User-friendly error messages and troubleshooting
-  - [ ] "Open Output Folder" and "View Error Log" buttons
-  - [ ] Help documentation and tooltips
-- [ ] **Phase 5: Polish and Distribution**
-  - [ ] UI/UX improvements and theming
-  - [ ] Advanced features (remember position, keyboard shortcuts)
-  - [ ] Create standalone executable with ps2exe
-  - [ ] Testing on Windows 10/11, user manual with screenshots
-- [ ] See details: [story15-simple-gui.md](stories/story15-simple-gui.md)
-
-### Story 16 - Folder-Specific Configuration Overrides
-**Priority**: High  
-**Status**: Planned  
-**Description**: Enable folder-specific config files for different translation settings per directory
-- [ ] **Phase 1: Configuration Discovery**
-  - [ ] Create ConfigResolver class for config file discovery
-  - [ ] Walk directory tree to find .subtitle-config.yaml files
-  - [ ] Implement config hierarchy and caching
-  - [ ] Support multiple naming conventions
-- [ ] **Phase 2: Configuration Merging**
-  - [ ] Implement deep merge algorithm for nested configs
-  - [ ] Define override precedence (CLI > Folder > Parent > Root)
-  - [ ] Optimize config loading with caching
-  - [ ] Handle null values and list merging strategies
-- [ ] **Phase 3: Integration with Translator**
-  - [ ] Update SubtitleTranslator to use ConfigResolver
-  - [ ] Integrate with batch processing
-  - [ ] Update CLI with --show-config and --ignore-folder-configs flags
-  - [ ] Update PowerShell scripts with config preview
-- [ ] **Phase 4: Configuration Validation**
-  - [ ] Implement validation rules for overrides
-  - [ ] Create config linting tool (lint_config.py)
-  - [ ] Add migration utilities for config updates
-  - [ ] Backup and restore functionality
-- [ ] **Phase 5: Documentation and Testing**
-  - [ ] Create "Folder Configuration Guide"
-  - [ ] Update existing documentation
-  - [ ] Comprehensive test coverage for precedence and merging
-  - [ ] Performance tests for large directory trees
-- [ ] See details: [story16-folder-config-overrides.md](stories/story16-folder-config-overrides.md)
-
-### Story 10 - MarianMT Hybrid Multi-Model Architecture
-**Priority**: Low  
-**Status**: Planned  
-- [ ] Integrate MarianMT as Translation Model within multi-model pipeline
-- [ ] Create Context Enhancer step for LLM refinement of MarianMT output
-- [ ] Implement hybrid mode: `--backend hybrid`
-- [ ] Combine 40x speed improvement with context awareness and validation
-- [ ] Expected: 10-20x faster than current multi-model with superior quality
-- [ ] See details: [story10-marianmt-hybrid-architecture.md](stories/story10-marianmt-hybrid-architecture.md)
-
-### Story 11 - Pure MarianMT Production Pipeline
-**Priority**: Low  
-**Status**: Planned  
-- [ ] Optimize MarianMT for large-scale production subtitle translation
-- [ ] Implement directory batch processing and multi-file operations
-- [ ] Add production-grade quality enhancements and post-processing
-- [ ] Build automated workflow for processing entire seasons
-- [ ] Expected: Process full seasons in minutes with 90%+ quality
-- [ ] See details: [story11-pure-marianmt-production.md](stories/story11-pure-marianmt-production.md)
-
-### Story 03 - Speech-to-Text Extraction
-**Priority**: Low  
-**Status**: Planned  
-- [ ] Hungarian Whisper integration
-- [ ] Audio file processing pipeline
-- [ ] SRT generation from audio
-- [ ] Quality validation for generated subtitles
-
-### Story 08 - Accessibility Features
-**Priority**: Low  
-**Status**: Planned  
-- [ ] Sound effect descriptions
-- [ ] Speaker identification tags
-- [ ] Enhanced formatting for hearing-impaired
-- [ ] Audio cue translations
-
-### Story 04 - Multi-Language Support
-**Priority**: Medium  
-**Status**: Planned  
-- [ ] Language detection system (see Story 14)
-- [ ] Multiple source/target language pairs
-- [ ] Model routing for different languages
-- [ ] CLI enhancements for language selection
-
-### Story 05 - GUI Application (SUPERSEDED by Story 15)
-**Priority**: N/A  
-**Status**: Superseded by Story 15 - Simple PowerShell GUI  
-- [ ] ~~PyQt6 graphical interface~~ (replaced with PowerShell GUI)
-- [ ] ~~Drag-and-drop file handling~~ (included in Story 15)
-- [ ] ~~Real-time translation preview~~ (included in Story 15)
-- [ ] ~~Settings management UI~~ (included in Story 15)
-
-### Story 06 - Advanced Subtitle Formats
-**Priority**: Low  
-**Status**: Planned  
-- [ ] WebVTT format support
-- [ ] ASS format support
-- [ ] Format conversion utilities
-- [ ] Formatting preservation
-
-### Story 07 - Audio-Based Enhancements
-**Priority**: Low  
-**Status**: Planned  
-- [ ] Audio timing analysis
-- [ ] Speaker detection
-- [ ] Speech rate optimization
-- [ ] Audio-subtitle synchronization
+### Story 17 - MarianMT Model Training Feature
+- [x] MarianMT model training implementation with GUI and CLI
+- [x] Subtitle-optimized translation training pipeline
+- [x] Training data preparation and management
+- [x] GUI interface for training configuration
+- [x] CLI integration for automated training workflows
+- [x] Model evaluation and validation
+- [x] Integration with existing MarianMT backend
+- [x] Documentation and user guides for training feature
