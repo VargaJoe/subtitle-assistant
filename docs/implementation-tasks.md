@@ -271,3 +271,13 @@ Currently no stories in progress.
   - [x] Algorithm improvement: Fixed splitting from (23,34) chars imbalance to (30,27) chars near-perfect balance
   - [x] Best word boundary selection to minimize line length differences
   - [x] Maintains readability while ensuring compatibility with non-wrapping subtitle viewers
+
+### Story 17 - MarianMT Model Training Feature
+- [x] MarianMT model training implementation with GUI and CLI
+- [x] Subtitle-optimized translation training pipeline
+- [x] Training data preparation and management
+- [x] GUI interface for training configuration
+- [x] CLI integration for automated training workflows
+- [x] Model evaluation and validation
+- [x] Integration with existing MarianMT backend
+- [x] Documentation and user guides for training feature
