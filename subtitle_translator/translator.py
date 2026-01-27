@@ -24,12 +24,11 @@ class SubtitleTranslator:
         self.parser = SRTParser()
         
         # Initialize translation client based on backend selection
-        if config.translation_backend == "ollama":
-            self.translation_client = OllamaClient(config)
-        elif config.translation_backend == "marian":
-            self.translation_client = MarianClient(config)
-        else:
-            raise ValueError(f"Unsupported translation backend: {config.translation_backend}")
+        from .core import registry
+        try:
+            self.translation_client = registry.get_provider(config.translation_backend, config.__dict__)
+        except ValueError as e:
+            raise ValueError(f"Unsupported translation backend: {config.translation_backend}. {e}")
         
         # For backwards compatibility, set ollama_client to the translation client if it's Ollama
         if config.translation_backend == "ollama":
