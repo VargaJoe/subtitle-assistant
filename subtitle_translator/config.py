@@ -167,7 +167,7 @@ class Config:
     """Configuration settings for the subtitle translator."""
     
     # Backend selection
-    translation_backend: str = "ollama"  # "ollama" or "marian"
+    translation_backend: str = "marian"  # "ollama" or "marian"
     
     # Basic translation settings
     source_lang: str = "en"
