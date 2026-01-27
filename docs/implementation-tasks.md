@@ -251,6 +251,34 @@ Currently no stories in progress.
 - [x] Added model licensing and attribution documentation
 - [x] Created PowerShell automation scripts for batch processing
 
+### Story 09F - Plugin System Architecture
+- [x] **Core Plugin Infrastructure**:
+  - [x] Abstract BaseTranslationProvider class with standardized interface
+  - [x] ProviderCapabilities dataclass for feature metadata
+  - [x] TranslationProviderRegistry singleton with factory pattern
+  - [x] @translation_provider decorator for automatic registration
+  - [x] Auto-discovery system loading providers from providers/ directory
+- [x] **Provider Migration**:
+  - [x] MarianProvider class implementing BaseTranslationProvider interface
+  - [x] OllamaProvider class implementing BaseTranslationProvider interface
+  - [x] Full backward compatibility with existing MarianClient and OllamaClient
+  - [x] Registry-based provider instantiation replacing hardcoded if-elif selection
+- [x] **System Integration**:
+  - [x] Updated SubtitleTranslator to use registry.get_provider() for backend selection
+  - [x] Modified main.py argument parsing to support dynamic provider selection
+  - [x] Added --list-providers command for provider discovery and status checking
+  - [x] Updated config.py default backend to "marian" for production performance
+- [x] **Batch Processing Enhancement**:
+  - [x] Enhanced translate_all_srt.ps1 with dynamic -Backend parameter support
+  - [x] Added -ListProviders switch for provider enumeration
+  - [x] Removed hardcoded backend restrictions allowing any registered provider
+  - [x] Improved configuration display showing backend-specific capabilities
+- [x] **Extensibility Features**:
+  - [x] User plugin directory support (~/.subtitle_translator/plugins/)
+  - [x] Plugin loading with error handling and validation
+  - [x] Provider capability reporting (batch support, whole-file support, languages)
+  - [x] Zero-code-change provider addition through decorator pattern
+
 ### Story 12 - Subtitle Row Splitting
 - [x] **Configuration System**:
   - [x] Added max_row_length (default: 42) and row_split_method (default: 'even') to config.yaml
