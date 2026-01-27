@@ -239,8 +239,18 @@ class Config:
             raise ValueError("Style must be 'natural', 'literal', or 'creative'")
         if self.translation_mode not in ["line-by-line", "batch", "whole-file", "multi-model"]:
             raise ValueError("Translation mode must be 'line-by-line', 'batch', 'whole-file', or 'multi-model'")
-        if self.translation_backend not in ["ollama", "marian"]:
-            raise ValueError("Translation backend must be 'ollama' or 'marian'")
+        
+        # Validate translation backend is available in plugin system
+        try:
+            from .core import registry
+            available_backends = registry.list_providers()
+            if self.translation_backend not in available_backends:
+                raise ValueError(f"Translation backend '{self.translation_backend}' is not available. Available backends: {', '.join(available_backends)}")
+        except ImportError:
+            # Fallback to hardcoded validation if plugin system not available
+            if self.translation_backend not in ["ollama", "marian"]:
+                raise ValueError("Translation backend must be 'ollama' or 'marian'")
+        
         if self.batch_size < 1:
             raise ValueError("Batch size must be at least 1")
         if self.overlap_size < 0:

@@ -9,8 +9,6 @@ import time
 
 from .config import Config
 from .srt_parser import SRTParser, SubtitleEntry
-from .ollama_client import OllamaClient
-from .marian_client import MarianClient
 from .progress import TranslationProgress, ProgressMode
 from .multi_model import MultiModelOrchestrator
 
