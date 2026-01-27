@@ -46,7 +46,7 @@ except Exception as e:
 # Test 3: Verify CLI script exists
 print("\nTest 3: Checking CLI script...")
 try:
-    train_script = Path(__file__).parent / "train_marian.py"
+    train_script = Path(__file__).parent.parent.parent / "train_marian.py"
     assert train_script.exists()
     print(f"✅ CLI script exists: {train_script}")
 except Exception as e:
