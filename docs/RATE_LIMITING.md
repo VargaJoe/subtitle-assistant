@@ -7,10 +7,13 @@ The Gemini provider includes robust rate limiting to prevent exceeding API quota
 ## Features
 
 ### ✅ Multi-Level Rate Limiting
-- **Per-minute**: 60 requests/minute (Gemini free tier)
-- **Per-hour**: 1000 requests/hour (conservative estimate)
-- **Per-day**: 10,000 requests/day (conservative estimate)
-- **Token limits**: 1M tokens/minute
+- **Per-minute**: Varies by model (5-10 requests/minute for free tier)
+  - gemini-2.5-flash: 5 req/min
+  - gemini-3-flash: 5 req/min
+  - gemini-2.5-flash-lite: 10 req/min
+- **Per-hour**: ~300-600 requests/hour (based on per-minute limits)
+- **Per-day**: ~7,200-14,400 requests/day (based on per-minute limits)
+- **Token limits**: Varies by model
 
 ### ✅ Persistent Tracking
 - Usage tracked in `data/rate_limits/gemini_usage.json`
@@ -120,11 +123,20 @@ python main.py --input file2.srt --backend gemini
 
 ### Default Limits (Gemini Free Tier)
 ```python
+# For gemini-2.5-flash or gemini-3-flash (5 req/min)
 RateLimitConfig(
-    requests_per_minute=60,      # Requests per minute
-    requests_per_hour=1000,      # Requests per hour
-    requests_per_day=10000,      # Requests per day
-    tokens_per_minute=1000000    # Tokens per minute (1M)
+    requests_per_minute=5,       # 5 requests per minute (free tier)
+    requests_per_hour=300,       # ~300 requests per hour
+    requests_per_day=7200,       # ~7,200 requests per day
+    tokens_per_minute=900000     # Token limits vary by model
+)
+
+# For gemini-2.5-flash-lite (10 req/min)
+RateLimitConfig(
+    requests_per_minute=10,      # 10 requests per minute (free tier)
+    requests_per_hour=600,       # ~600 requests per hour
+    requests_per_day=14400,      # ~14,400 requests per day
+    tokens_per_minute=1000000    # Token limits vary by model
 )
 ```
 
@@ -204,10 +216,11 @@ translator.config.translation_mode = "batch"  # Faster but uses more quota faste
 
 ## Troubleshooting
 
-### "Rate limit: X/60 requests per minute"
-- You've hit the per-minute limit
+### "Rate limit: X/5 requests per minute"
+- You've hit the per-minute limit (Gemini free tier is very restrictive!)
 - App will automatically wait ~1 minute before retrying
-- Or wait before translating more
+- Consider using gemini-2.5-flash-lite (10 req/min) if available
+- Or switch to MarianMT backend for faster batch processing
 
 ### "Rate limit: X/1000 requests per hour"
 - You've hit the per-hour limit

@@ -49,11 +49,16 @@ class GeminiProvider(BaseTranslationProvider):
         self.max_output_tokens = config.get("max_output_tokens", 512)
         
         # Initialize rate limiter with Gemini-specific limits
+        # Free tier limits vary by model:
+        # - gemini-2.5-flash: 5 req/min
+        # - gemini-3-flash: 5 req/min
+        # - gemini-2.5-flash-lite: 10 req/min
+        # Using conservative 5 req/min as default
         rate_limit_config = RateLimitConfig(
-            requests_per_minute=60,  # Gemini free tier: 60 requests/min
-            requests_per_hour=1000,  # Conservative estimate
-            requests_per_day=10000,  # Conservative estimate
-            tokens_per_minute=1000000  # Gemini: 1M tokens/min
+            requests_per_minute=5,  # Gemini free tier: 5 requests/min
+            requests_per_hour=300,  # ~300 requests per hour
+            requests_per_day=7200,  # ~7,200 requests per day
+            tokens_per_minute=900000  # Varies by model
         )
         self.rate_limiter = APIRateLimiter(
             provider_name="gemini",
