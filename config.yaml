@@ -42,9 +42,11 @@ ollama:
   timeout: 300  # Increased timeout for large models (in seconds)
 
 # Google Gemini settings
+# API key is loaded from environment variable GEMINI_API_KEY
+# See .env.example for how to set it up
 gemini:
-  # API Key (can also be set via GEMINI_API_KEY environment variable)
-  api_key: ""  # Leave empty to use environment variable
+  # api_key: Load from GEMINI_API_KEY environment variable (do NOT hardcode here)
+  # Example: In .env file, set: GEMINI_API_KEY=your-actual-key-here
   model: "gemini-2.0-flash"  # "gemini-2.0-flash", "gemini-pro", etc.
   temperature: 0.3  # Lower = more consistent translations
   max_output_tokens: 512  # Maximum tokens in response
