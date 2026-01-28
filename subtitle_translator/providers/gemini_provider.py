@@ -17,6 +17,7 @@ except ImportError:
     genai = None
 
 from ..core.plugin_system import BaseTranslationProvider, ProviderCapabilities, translation_provider
+from ..core.rate_limiter import APIRateLimiter, RateLimitConfig
 
 
 @translation_provider("gemini")
@@ -46,6 +47,18 @@ class GeminiProvider(BaseTranslationProvider):
         self.model_name = config.get("gemini_model", "gemini-2.0-flash")
         self.temperature = config.get("temperature", 0.3)
         self.max_output_tokens = config.get("max_output_tokens", 512)
+        
+        # Initialize rate limiter with Gemini-specific limits
+        rate_limit_config = RateLimitConfig(
+            requests_per_minute=60,  # Gemini free tier: 60 requests/min
+            requests_per_hour=1000,  # Conservative estimate
+            requests_per_day=10000,  # Conservative estimate
+            tokens_per_minute=1000000  # Gemini: 1M tokens/min
+        )
+        self.rate_limiter = APIRateLimiter(
+            provider_name="gemini",
+            config=rate_limit_config
+        )
         
         # Language settings
         self.source_lang = config.get("source_lang", "English")
@@ -89,10 +102,31 @@ class GeminiProvider(BaseTranslationProvider):
         return [self.model_name]
     
     def translate_with_retry(self, text: str, context: Optional[str] = None) -> str:
-        """Translate text with retry logic."""
+        """Translate text with retry logic and rate limiting."""
+        # Estimate tokens (rough: ~4 chars per token)
+        estimated_tokens = len(text) // 4 + 100  # Add buffer for output
+        
         for attempt in range(3):
             try:
-                return self._translate(text, context)
+                # Check rate limits and wait if needed
+                is_allowed, error_msg = self.rate_limiter.check_rate_limit(estimated_tokens)
+                if not is_allowed:
+                    # Try waiting once
+                    if attempt < 2:
+                        waited = self.rate_limiter.wait_if_needed(estimated_tokens, max_wait=60)
+                        if not waited:
+                            raise RuntimeError(f"Rate limit exceeded: {error_msg}")
+                    else:
+                        raise RuntimeError(f"Rate limit exceeded: {error_msg}")
+                
+                # Perform translation
+                result = self._translate(text, context)
+                
+                # Record successful usage
+                self.rate_limiter.record_usage(requests=1, tokens=estimated_tokens)
+                
+                return result
+                
             except Exception as e:
                 if attempt == 2:
                     raise
