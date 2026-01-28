@@ -4,9 +4,36 @@
 
 ## In-Progress Stories
 
-Currently no stories in progress.
+### Gemini Provider + Multiline Stretching Fix (CURRENT SESSION)
+- [x] **Critical Bug Fix: Cross-Entry Timestamp Misalignment** - COMPLETED ✓
+  - [x] Investigated user reports of text appearing at wrong timestamps
+  - [x] Found Bug #1: Integer truncation in proportional splitting causing rounding accumulation
+  - [x] Found Bug #2: Silent entry loss when zip() receives mismatched counts
+  - [x] Found Bug #3: No validation of split_translations count matching group_entries
+  - [x] Fixed: Implemented cumulative allocation algorithm with proper rounding
+  - [x] Fixed: Added entry count safety checks and empty string padding
+  - [x] Fixed: Added validation before zip() to prevent silent entry loss
+  - [x] Created test_cross_entry_splitting.py demonstrating bug and validating fix
+  - [x] Test results: Improved from 11:1:2 (78.6%:7.1%:14.3%) to 12:1:1 (85.7%:7.1%:7.1%) distribution
+
+- [x] **Multiline Translation Stretching Fix** - COMPLETED ✓
+  - [x] Understanding clarified: Two separate aspects covered
+  - [x] Cross-entry preservation: Already working via Story 09C implementation (now bug-fixed)
+  - [x] Within-entry line preservation: Fixed with original_line_count tracking
+  - [x] Both aspects now properly implemented and tested
+  
+- [ ] **Gemini Provider Integration** - IN PROGRESS
+  - [x] Created GeminiProvider class (200 lines) following plugin architecture
+  - [x] Implements BaseTranslationProvider interface with @translation_provider("gemini") decorator
+  - [x] Add google-generativeai to requirements.txt ✓
+  - [x] Add Gemini configuration to config.yaml (api_key, model selection) ✓
+  - [ ] Test Gemini provider integration
+  - [ ] Add Gemini API key setup guide to documentation
+  - [ ] Optional: Add quality diagnostics for comparing providers
 
 ---
+
+## Recently Completed Stories
 
 ## Planned Stories
 

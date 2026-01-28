@@ -271,7 +271,8 @@ class SubtitleTranslator:
                 start_time=entry.start_time,
                 end_time=entry.end_time,
                 text=translated_text,
-                original_text=entry.text
+                original_text=entry.text,
+                original_line_count=entry.original_line_count  # Preserve original line count
             )
             
             translated_entries.append(translated_entry)
@@ -343,7 +344,8 @@ class SubtitleTranslator:
                         start_time=entry.start_time,
                         end_time=entry.end_time,
                         text=translated_text,
-                        original_text=entry.text
+                        original_text=entry.text,
+                        original_line_count=entry.original_line_count
                     )
                     
                     if entry_index < batch_start:
@@ -380,7 +382,8 @@ class SubtitleTranslator:
                             start_time=entry.start_time,
                             end_time=entry.end_time,
                             text=translated_text,
-                            original_text=entry.text
+                            original_text=entry.text,
+                            original_line_count=entry.original_line_count
                         )
                         
                         if entry_index not in processed_indices:
@@ -478,7 +481,8 @@ class SubtitleTranslator:
                     start_time=entry.start_time,
                     end_time=entry.end_time,
                     text=translated_text,
-                    original_text=entry.text
+                    original_text=entry.text,
+                    original_line_count=entry.original_line_count
                 )
                 translated_entries.append(translated_entry)
             else:
@@ -800,7 +804,8 @@ class SubtitleTranslator:
                         index=entry.index,
                         start_time=entry.start_time,
                         end_time=entry.end_time,
-                        text=translated_text
+                        text=translated_text,
+                        original_line_count=entry.original_line_count
                     )
                     translated_entries.append(translated_entry)
                     
@@ -842,13 +847,25 @@ class SubtitleTranslator:
                             translated_combined, group_entries
                         )
                     
+                    # CRITICAL SAFETY CHECK: Verify entry count matches
+                    if len(split_translations) != len(group_entries):
+                        self.logger.error(
+                            f"Split translation count mismatch for group {group_indices}: "
+                            f"Expected {len(group_entries)}, got {len(split_translations)}. "
+                            f"Using fallback."
+                        )
+                        # Fallback: use original entries
+                        translated_entries.extend(group_entries)
+                        continue
+                    
                     # Create translated entries with original timing
                     for i, (original_entry, split_text) in enumerate(zip(group_entries, split_translations)):
                         translated_entry = SubtitleEntry(
                             index=original_entry.index,
                             start_time=original_entry.start_time,
                             end_time=original_entry.end_time,
-                            text=split_text
+                            text=split_text,
+                            original_line_count=original_entry.original_line_count
                         )
                         translated_entries.append(translated_entry)
                         
@@ -876,7 +893,7 @@ class SubtitleTranslator:
             original_entries: List of original entries that formed the sentence
             
         Returns:
-            List of text portions for each original entry
+            List of text portions for each original entry (GUARANTEED same length as original_entries)
         """
         if len(original_entries) == 1:
             return [translated_text]
@@ -899,25 +916,44 @@ class SubtitleTranslator:
                 start_idx = end_idx
             return result
         
-        # Split proportionally by character count
+        # Split proportionally using CUMULATIVE approach to avoid rounding errors
         translated_words = translated_text.split()
         total_words = len(translated_words)
+        
+        if total_words == 0:
+            # Edge case: empty translation
+            return [''] * len(original_entries)
         
         result = []
         words_used = 0
         
         for i, original_entry in enumerate(original_entries):
             if i == len(original_entries) - 1:
-                # Last entry gets all remaining words
+                # Last entry gets all remaining words (prevents rounding errors)
                 portion_words = translated_words[words_used:]
             else:
-                # Calculate proportional word count
-                proportion = original_lengths[i] / total_original_length
-                words_for_this_entry = max(1, int(total_words * proportion))
+                # Calculate cumulative allocation to avoid rounding drift
+                # Target position in translated text based on original proportions
+                proportion_so_far = sum(original_lengths[:i+1]) / total_original_length
+                target_words_cumulative = int(total_words * proportion_so_far + 0.5)  # Round to nearest
+                
+                # Take words from current position to target
+                words_for_this_entry = max(1, target_words_cumulative - words_used)  # At least 1 word
                 portion_words = translated_words[words_used:words_used + words_for_this_entry]
-                words_used += words_for_this_entry
+                words_used += len(portion_words)  # Use actual count, not calculated count
             
-            result.append(' '.join(portion_words))
+            result.append(' '.join(portion_words) if portion_words else '')
+        
+        # CRITICAL: Verify we always return correct number of entries
+        if len(result) != len(original_entries):
+            self.logger.error(
+                f"Entry count mismatch in split: Expected {len(original_entries)}, got {len(result)}. "
+                f"Padding with empty strings."
+            )
+            # Pad or truncate to match original entry count
+            while len(result) < len(original_entries):
+                result.append('')
+            result = result[:len(original_entries)]
         
         return result
 
