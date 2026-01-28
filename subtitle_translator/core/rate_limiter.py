@@ -19,13 +19,17 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RateLimitConfig:
-    """Configuration for rate limits."""
-    requests_per_minute: int = 5  # Gemini free tier: 5 requests/min (gemini-2.5-flash, gemini-3-flash)
-    requests_per_hour: int = 300  # ~300 requests per hour
-    requests_per_day: int = 7200  # ~7,200 requests per day
-    tokens_per_minute: int = 900000  # Varies by model
-    tokens_per_hour: Optional[int] = None  # No specific limit
-    tokens_per_day: Optional[int] = None  # No specific limit
+    """Configuration for rate limits based on Gemini API actual limits."""
+    # Gemini Free Tier Actual Limits (from AI Studio):
+    # gemini-2.5-flash: 5 RPM, 250K TPM, 20 RPD
+    # gemini-3-flash: 5 RPM, 250K TPM, 20 RPD
+    # gemini-2.5-flash-lite: 10 RPM, 250K TPM, 20 RPD
+    requests_per_minute: int = 5  # RPM: 5 for flash/3-flash, 10 for flash-lite
+    requests_per_hour: int = 50  # Calculated from RPD limit
+    requests_per_day: int = 20  # RPD: ONLY 20 requests per day on free tier!
+    tokens_per_minute: int = 250000  # TPM: 250K tokens per minute
+    tokens_per_hour: Optional[int] = None
+    tokens_per_day: Optional[int] = None
 
 
 @dataclass

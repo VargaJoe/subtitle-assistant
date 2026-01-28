@@ -48,17 +48,22 @@ class GeminiProvider(BaseTranslationProvider):
         self.temperature = config.get("temperature", 0.3)
         self.max_output_tokens = config.get("max_output_tokens", 512)
         
-        # Initialize rate limiter with Gemini-specific limits
-        # Free tier limits vary by model:
-        # - gemini-2.5-flash: 5 req/min
-        # - gemini-3-flash: 5 req/min
-        # - gemini-2.5-flash-lite: 10 req/min
-        # Using conservative 5 req/min as default
+        # Initialize rate limiter with Gemini-specific limits (from AI Studio)
+        # Free tier limits by model:
+        # - gemini-2.5-flash: 5 RPM, 250K TPM, 20 RPD (requests/day!)
+        # - gemini-3-flash: 5 RPM, 250K TPM, 20 RPD
+        # - gemini-2.5-flash-lite: 10 RPM, 250K TPM, 20 RPD
+        
+        # Determine rate limits based on selected model
+        requests_per_minute = 5  # Default for most models
+        if "flash-lite" in self.model_name:
+            requests_per_minute = 10  # flash-lite allows 10 RPM
+        
         rate_limit_config = RateLimitConfig(
-            requests_per_minute=5,  # Gemini free tier: 5 requests/min
-            requests_per_hour=300,  # ~300 requests per hour
-            requests_per_day=7200,  # ~7,200 requests per day
-            tokens_per_minute=900000  # Varies by model
+            requests_per_minute=requests_per_minute,
+            requests_per_hour=50,  # Calculated from 20 RPD limit
+            requests_per_day=20,   # CRITICAL: Only 20 requests per DAY on free tier!
+            tokens_per_minute=250000  # Actual limit: 250K TPM
         )
         self.rate_limiter = APIRateLimiter(
             provider_name="gemini",

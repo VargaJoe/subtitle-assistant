@@ -4,6 +4,27 @@
 
 The Gemini provider includes robust rate limiting to prevent exceeding API quotas and avoid DOS-ing Google's servers. Rate limits are **persistent across sessions** and **shared across multiple app instances**.
 
+## Actual Gemini API Limits (from Google AI Studio)
+
+### Free Tier Rate Limits by Model
+
+| Model | RPM | TPM | RPD |
+|-------|-----|-----|-----|
+| **gemini-2.5-flash** | **5** | **250K** | **20** |
+| **gemini-3-flash** | **5** | **250K** | **20** |
+| **gemini-2.5-flash-lite** | **10** | **250K** | **20** |
+| gemini-embedding-1.0 | 100 | 30K | 1K |
+| gemini-2.5-flash-tts | 3 | 10K | 10 |
+| gemma-3-* | 30 | 15K | 14.4K |
+| gemini-2.5-flash-native-audio | Unlimited | 1M | Unlimited |
+
+**Legend:**
+- **RPM** = Requests Per Minute
+- **TPM** = Tokens Per Minute  
+- **RPD** = Requests Per Day
+
+⚠️ **CRITICAL**: The free tier has a **hard limit of 20 requests per day** for most models!
+
 ## Features
 
 ### ✅ Multi-Level Rate Limiting
@@ -11,9 +32,9 @@ The Gemini provider includes robust rate limiting to prevent exceeding API quota
   - gemini-2.5-flash: 5 req/min
   - gemini-3-flash: 5 req/min
   - gemini-2.5-flash-lite: 10 req/min
-- **Per-hour**: ~300-600 requests/hour (based on per-minute limits)
-- **Per-day**: ~7,200-14,400 requests/day (based on per-minute limits)
-- **Token limits**: Varies by model
+- **Per-hour**: ~50 requests/hour (to stay under 20 req/day)
+- **Per-day**: **ONLY 20 requests/day** (critical limitation!)
+- **Token limits**: **250K tokens/minute**
 
 ### ✅ Persistent Tracking
 - Usage tracked in `data/rate_limits/gemini_usage.json`
@@ -87,10 +108,9 @@ print(stats)
 # Output:
 # {
 #   "provider": "gemini",
-#   "per_minute": {"requests": "23/60", "tokens": "450000/1000000"},
-#   "per_hour": {"requests": "245/1000"},
-#   "per_day": {"requests": "2340/10000"},
-#   "total_records": 2340,
+#   "per_minute": {"requests": "3/5", "tokens": "750000/250000"},
+#   "per_day": {"requests": "12/20"},
+#   "total_records": 12,
 #   "storage_file": "data/rate_limits/gemini_usage.json"
 # }
 ```
