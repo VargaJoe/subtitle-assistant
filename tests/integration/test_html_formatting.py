@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 # Add project root to path
-project_root = Path(__file__).parent.parent.parent
+project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from subtitle_translator.config import Config
@@ -74,7 +74,7 @@ def test_html_formatting():
         user_test = "<i>Previously...</i>"
         print(f"Input:  {repr(user_test)}")
         
-        result = translator.translation_client.translate_with_retry(user_test)
+        result = client.translate_text(user_test)
         print(f"Output: {repr(result)}")
         
         if '<i>' in result and '</i>' in result and not result.endswith(' <i'):
