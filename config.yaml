@@ -3,7 +3,7 @@
 # Translation settings
 translation:
   # Backend selection - choose translation engine
-  backend: "ollama"  # "ollama" or "marian"
+  backend: "marian"  # "ollama", "marian", or "gemini"
   
   source_language: "en"
   target_language: "hu"
@@ -40,6 +40,14 @@ ollama:
   host: "localhost"
   port: 11434
   timeout: 300  # Increased timeout for large models (in seconds)
+
+# Google Gemini settings
+gemini:
+  # API Key (can also be set via GEMINI_API_KEY environment variable)
+  api_key: ""  # Leave empty to use environment variable
+  model: "gemini-2.0-flash"  # "gemini-2.0-flash", "gemini-pro", etc.
+  temperature: 0.3  # Lower = more consistent translations
+  max_output_tokens: 512  # Maximum tokens in response
 
 # MarianMT settings
 marian:
