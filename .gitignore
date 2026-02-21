@@ -158,6 +158,13 @@ trained_models/
 training_output.log
 training_error.log
 test.eng.progress
+
+# Runtime state — API usage tracking (rate limiter persistence across runs)
+data/rate_limits/
+
+# Debug dumps from API providers (raw responses for post-mortem inspection)
+output/debug/
+
 # Environment variables and secrets
 .env
 .env.local

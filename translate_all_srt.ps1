@@ -21,7 +21,7 @@
     Target language code (e.g., 'hu' for Hungarian). Defaults to 'hu'.
 
 .PARAMETER Backend
-    Translation backend to use ('marian' or 'ollama'). Defaults to 'marian'.
+    Translation backend to use ('marian', 'ollama', or 'gemini'). Defaults to 'marian'.
 
 .PARAMETER Verbose
     Enable verbose output for detailed translation progress
@@ -39,6 +39,10 @@
 .EXAMPLE
     .\translate_all_srt.ps1 -Backend ollama
     Translates using Ollama backend instead of MarianMT
+
+.EXAMPLE
+    .\translate_all_srt.ps1 -Backend gemini
+    Translates using Google Gemini API (requires GEMINI_API_KEY in .env)
 
 .EXAMPLE
     .\translate_all_srt.ps1 -ListProviders
@@ -209,6 +213,10 @@ if ($ReformatOnly) {
     if ($Backend -eq "marian") {
         Write-Host "  - Backend: MarianMT (Helsinki-NLP/opus-mt-en-hu)" -ForegroundColor Cyan
         Write-Host "  - Strategy: Smart multiline with cross-entry detection" -ForegroundColor Cyan
+    } elseif ($Backend -eq "gemini") {
+        Write-Host "  - Backend: Google Gemini API" -ForegroundColor Cyan
+        Write-Host "  - Strategy: Neural translation with context awareness" -ForegroundColor Cyan
+        Write-Host "  - Note: Requires GEMINI_API_KEY in .env (free tier: 20 req/day)" -ForegroundColor Yellow
     } else {
         Write-Host "  - Backend: Ollama (Local AI models)" -ForegroundColor Cyan
         Write-Host "  - Strategy: Multi-model architecture with context awareness" -ForegroundColor Cyan

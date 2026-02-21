@@ -135,20 +135,20 @@ class SubtitleTranslator:
                 self.logger.info(f"Resuming translation: {remaining} entries remaining")
             
             # Translate entries based on mode
-            if self.config.translation_mode == "multi-model":
+            if getattr(self.translation_client, "supports_api_batch", False):
+                # Provider supports true API-level batch (e.g. Gemini):
+                # send all entries as chunked JSON arrays — overrides all mode settings.
+                # Multi-model / line-by-line modes don't make sense for external API providers.
+                # NOTE: do NOT .extend() here — _translate_entries_api_batch already appends
+                # to progress.translated_entries via add_translated_entry() internally.
+                self._translate_entries_api_batch(entries[start_index:], progress, start_index)
+            elif self.config.translation_mode == "multi-model":
                 # Use multi-model pipeline for the whole file
                 progress.translated_entries = self.multi_model_orchestrator.translate_with_multimodel(entries, progress)
                 progress.current_index = len(progress.translated_entries)
-            elif getattr(self.translation_client, "supports_api_batch", False):
-                # Provider supports true API-level batch (e.g. Gemini):
-                # send all entries in JSON-array chunks instead of one call per entry.
-                progress.translated_entries.extend(
-                    self._translate_entries_api_batch(entries[start_index:], progress, start_index)
-                )
             elif self.config.translation_mode == ProgressMode.BATCH:
-                progress.translated_entries.extend(
-                    self._translate_entries_batch(entries[start_index:], progress, start_index)
-                )
+                # Same rule: method populates progress internally, don't .extend()
+                self._translate_entries_batch(entries[start_index:], progress, start_index)
             elif self.config.translation_mode == ProgressMode.WHOLE_FILE:
                 if start_index > 0:
                     self.logger.warning("Whole-file mode doesn't support resume, starting fresh")
@@ -158,9 +158,8 @@ class SubtitleTranslator:
                 progress.translated_entries = self._translate_entries_whole_file(entries)
                 progress.current_index = total_entries
             else:  # line-by-line (default)
-                progress.translated_entries.extend(
-                    self._translate_entries_line_by_line(entries[start_index:], progress, start_index)
-                )
+                # Same rule: method populates progress internally, don't .extend()
+                self._translate_entries_line_by_line(entries[start_index:], progress, start_index)
             
             # Write output file
             all_entries = progress.translated_entries
@@ -226,18 +225,19 @@ class SubtitleTranslator:
         try:
             translated_texts = self.translation_client.translate_api_batch(texts)
         except Exception as e:
-            self.logger.error(
-                f"API-batch translation failed: {e}. "
-                f"Falling back to line-by-line for safety."
-            )
-            return self._translate_entries_line_by_line(entries, progress, start_offset)
+            # Hard fail — do NOT fall back to 828 individual API calls.
+            # A batch failure on an external provider must stop the process
+            # to avoid burning through daily rate limits silently.
+            raise RuntimeError(
+                f"API-batch translation failed and fallback is disabled for external providers. "
+                f"Fix the batch issue before retrying. Original error: {e}"
+            ) from e
 
         if len(translated_texts) != len(entries):
-            self.logger.error(
-                f"API-batch returned {len(translated_texts)} results for "
-                f"{len(entries)} entries — falling back to line-by-line."
+            raise RuntimeError(
+                f"API-batch returned {len(translated_texts)} results for {len(entries)} entries. "
+                f"Possible truncation. Hard-failing to prevent silent data loss."
             )
-            return self._translate_entries_line_by_line(entries, progress, start_offset)
 
         translated_entries: List[SubtitleEntry] = []
         for i, (entry, translated_text) in enumerate(zip(entries, translated_texts)):
@@ -257,6 +257,46 @@ class SubtitleTranslator:
                 total_with_offset = progress.total_entries
                 pct = (current / total_with_offset) * 100
                 print(f"\rTranslating: {pct:.1f}% ({current}/{total_with_offset})", end="", flush=True)
+
+        if self.config.verbose:
+            print()
+
+        return translated_entries
+
+    def _translate_entries_single(self, entries: List[SubtitleEntry], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
+        """
+        Direct single-entry fallback for API-batch mode.
+        Does NOT go through multi-model; calls translate_with_retry directly.
+        Used only when the batch call fails or returns wrong count.
+        """
+        translated_entries: List[SubtitleEntry] = []
+        total_with_offset = progress.total_entries
+
+        for i, entry in enumerate(entries):
+            current_index = start_offset + i + 1
+            if self.config.verbose:
+                pct = (current_index / total_with_offset) * 100
+                print(f"\rFallback single: {pct:.1f}% ({current_index}/{total_with_offset})", end="", flush=True)
+
+            try:
+                translated_text = self.translation_client.translate_with_retry(entry.text)
+            except Exception as fe:
+                self.logger.warning(
+                    f"Fallback single translation failed for entry {entry.index}: {fe}. "
+                    f"Keeping original text."
+                )
+                translated_text = entry.text
+
+            translated_entry = SubtitleEntry(
+                index=entry.index,
+                start_time=entry.start_time,
+                end_time=entry.end_time,
+                text=translated_text,
+                original_text=entry.text,
+                original_line_count=entry.original_line_count,
+            )
+            translated_entries.append(translated_entry)
+            progress.add_translated_entry(translated_entry)
 
         if self.config.verbose:
             print()
