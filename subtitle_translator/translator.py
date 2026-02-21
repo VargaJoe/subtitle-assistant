@@ -139,6 +139,12 @@ class SubtitleTranslator:
                 # Use multi-model pipeline for the whole file
                 progress.translated_entries = self.multi_model_orchestrator.translate_with_multimodel(entries, progress)
                 progress.current_index = len(progress.translated_entries)
+            elif getattr(self.translation_client, "supports_api_batch", False):
+                # Provider supports true API-level batch (e.g. Gemini):
+                # send all entries in JSON-array chunks instead of one call per entry.
+                progress.translated_entries.extend(
+                    self._translate_entries_api_batch(entries[start_index:], progress, start_index)
+                )
             elif self.config.translation_mode == ProgressMode.BATCH:
                 progress.translated_entries.extend(
                     self._translate_entries_batch(entries[start_index:], progress, start_index)
@@ -193,7 +199,70 @@ class SubtitleTranslator:
             except Exception as save_error:
                 self.logger.error(f"Failed to save progress: {save_error}")
             raise
-    
+
+    def _translate_entries_api_batch(self, entries: List[SubtitleEntry], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
+        """
+        Translate subtitle entries using the provider's true API-batch capability.
+
+        Instead of one API call per entry, this collects all texts and calls
+        provider.translate_api_batch() which sends them as chunked JSON arrays.
+        For a 1500-entry file this means ~5-15 API calls instead of 1500,
+        which stays well within Gemini's 20 requests/day free-tier limit.
+
+        Falls back gracefully to line-by-line on chunk-level errors so that
+        already-translated chunks are not lost.
+        """
+        if not entries:
+            return []
+
+        total = len(entries)
+        self.logger.info(
+            f"Using API-batch translation for {total} entries via "
+            f"{type(self.translation_client).__name__}"
+        )
+
+        texts = [entry.text for entry in entries]
+
+        try:
+            translated_texts = self.translation_client.translate_api_batch(texts)
+        except Exception as e:
+            self.logger.error(
+                f"API-batch translation failed: {e}. "
+                f"Falling back to line-by-line for safety."
+            )
+            return self._translate_entries_line_by_line(entries, progress, start_offset)
+
+        if len(translated_texts) != len(entries):
+            self.logger.error(
+                f"API-batch returned {len(translated_texts)} results for "
+                f"{len(entries)} entries — falling back to line-by-line."
+            )
+            return self._translate_entries_line_by_line(entries, progress, start_offset)
+
+        translated_entries: List[SubtitleEntry] = []
+        for i, (entry, translated_text) in enumerate(zip(entries, translated_texts)):
+            translated_entry = SubtitleEntry(
+                index=entry.index,
+                start_time=entry.start_time,
+                end_time=entry.end_time,
+                text=translated_text,
+                original_text=entry.text,
+                original_line_count=entry.original_line_count,
+            )
+            translated_entries.append(translated_entry)
+            progress.add_translated_entry(translated_entry)
+
+            if self.config.verbose:
+                current = start_offset + i + 1
+                total_with_offset = progress.total_entries
+                pct = (current / total_with_offset) * 100
+                print(f"\rTranslating: {pct:.1f}% ({current}/{total_with_offset})", end="", flush=True)
+
+        if self.config.verbose:
+            print()
+
+        return translated_entries
+
     def _translate_entries_line_by_line(self, entries: List[SubtitleEntry], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
         """
         Translate subtitle entries one by one with progress tracking.
