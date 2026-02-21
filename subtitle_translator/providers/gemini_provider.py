@@ -10,11 +10,13 @@ import os
 from typing import Dict, Any, List, Optional
 
 try:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types as genai_types
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
     genai = None
+    genai_types = None
 
 from ..core.plugin_system import BaseTranslationProvider, ProviderCapabilities, translation_provider
 from ..core.rate_limiter import APIRateLimiter, RateLimitConfig
@@ -29,8 +31,8 @@ class GeminiProvider(BaseTranslationProvider):
         
         if not GEMINI_AVAILABLE:
             raise ImportError(
-                "google-generativeai library not available. "
-                "Install with: pip install google-generativeai"
+                "google-genai library not available. "
+                "Install with: pip install google-genai"
             )
         
         # Get API key
@@ -41,7 +43,7 @@ class GeminiProvider(BaseTranslationProvider):
                 "or gemini_api_key in config."
             )
         
-        genai.configure(api_key=api_key)
+        self.client = genai.Client(api_key=api_key)
         
         # Configuration
         self.model_name = config.get("gemini_model", "gemini-2.0-flash")
@@ -101,7 +103,7 @@ class GeminiProvider(BaseTranslationProvider):
         if not GEMINI_AVAILABLE:
             return False
         try:
-            genai.list_models()
+            list(self.client.models.list())
             return True
         except Exception as e:
             self.logger.error(f"Gemini API unavailable: {e}")
@@ -190,14 +192,11 @@ class GeminiProvider(BaseTranslationProvider):
             prompt = f"{context}\n\n{prompt}"
         
         try:
-            model = genai.GenerativeModel(
-                self.model_name,
-                system_instruction=self.system_prompt
-            )
-            
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=self.system_prompt,
                     temperature=self.temperature,
                     max_output_tokens=self.max_output_tokens,
                 )
