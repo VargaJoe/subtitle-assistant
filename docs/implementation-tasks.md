@@ -22,12 +22,23 @@
   - [x] Within-entry line preservation: Fixed with original_line_count tracking
   - [x] Both aspects now properly implemented and tested
   
+- [x] **Gemini Translation Slippage Fix** - COMPLETED ✓
+  - [x] Root cause identified: Gemini merges cross-entry sentence continuations into a
+        single output key, shifting all subsequent entry translations by 1+ positions
+  - [x] Example: entries 85 ("You've been ducking me") + 86 ("since I got back from Sweden.")
+        were merged into key "85", making every entry after that one position off
+  - [x] Fix: pre-merge cross-entry sentence groups before the API call in
+        `_translate_entries_api_batch()`, reusing `_detect_cross_entry_groups()`
+  - [x] After translation, merged results are split back proportionally per entry
+        using existing `_split_translation_to_entries()` logic
+  - [x] 5 new unit tests added in `tests/unit/test_api_batch_cross_entry.py` — all passing
+
 - [ ] **Gemini Provider Integration** - IN PROGRESS
   - [x] Created GeminiProvider class (200 lines) following plugin architecture
   - [x] Implements BaseTranslationProvider interface with @translation_provider("gemini") decorator
   - [x] Add google-generativeai to requirements.txt ✓
   - [x] Add Gemini configuration to config.yaml (api_key, model selection) ✓
-  - [ ] Test Gemini provider integration
+  - [ ] Test Gemini provider integration end-to-end
   - [ ] Add Gemini API key setup guide to documentation
   - [ ] Optional: Add quality diagnostics for comparing providers
 
