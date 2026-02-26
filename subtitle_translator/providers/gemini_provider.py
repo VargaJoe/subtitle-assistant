@@ -346,13 +346,24 @@ class GeminiProvider(BaseTranslationProvider):
             '\b': '\\b',
             '\f': '\\f',
         }
+        # Valid characters after a backslash in JSON strings:
+        # " \ / b f n r t u  (JSON spec §7)
+        VALID_JSON_ESCAPES = {'"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'}
+
         result: list = []
         in_string = False
         escaped = False
         for ch in repaired:
             if escaped:
-                result.append(ch)
                 escaped = False
+                if ch in VALID_JSON_ESCAPES:
+                    # Valid JSON escape sequence — pass through as-is
+                    result.append(ch)
+                else:
+                    # Invalid escape (e.g. \p, \k, \a) — escape the backslash
+                    # so that json.loads sees \\ch instead of \ch
+                    result.append('\\')
+                    result.append(ch)
             elif ch == "\\" and in_string:
                 result.append(ch)
                 escaped = True
