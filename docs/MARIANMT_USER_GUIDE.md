@@ -1,4 +1,8 @@
-# MarianMT Translation Backend - User### Performance Modes
+# MarianMT Translation Backend - User Guide
+
+MarianMT is the best local/offline backend for Subtitle Assistant. It is a strong fit when you need fast processing without internet access, but if you have reliable internet and want the strongest translation quality, the Gemini backend is usually the better choice.
+
+## Performance Modes
 
 ```powershell
 # Line-by-line mode (safest, resumable)
@@ -95,12 +99,12 @@ Output: Entry 4: "- Nem láttad a lányomat?"
 - ✅ **Smart Detection**: Distinguishes between cross-entry sentences and dialogue
 - ✅ **Automatic**: Works seamlessly with smart multiline strategy Overview
 
-MarianMT is a high-performance neural machine translation backend for the Subtitle Assistant project. It provides **40x faster** translation speeds compared to Ollama while maintaining excellent translation quality.
+MarianMT is a high-performance neural machine translation backend for the Subtitle Assistant project. It provides **40x faster** translation speeds compared to Ollama while maintaining good subtitle translation quality for local/offline workflows.
 
 ## Key Benefits
 
 - ⚡ **Ultra-Fast Performance**: 0.14 seconds per subtitle entry (vs 5-6 seconds with Ollama)
-- 🎯 **High Quality**: Natural Hungarian translations using Helsinki-NLP models
+- 🎯 **Good Local Quality**: Natural Hungarian translations using Helsinki-NLP models, suitable for offline use
 - 🖥️ **Local Processing**: No internet required, works completely offline
 - 💾 **Automatic Model Management**: Downloads and caches models automatically
 - 🔄 **GPU Acceleration**: Supports CUDA when available, falls back to CPU
@@ -173,6 +177,10 @@ marian:
 |---------|------------------|---------|--------------|-------------------|
 | Ollama  | 5-6 seconds      | ⭐⭐⭐⭐ | Optional     | No                |
 | MarianMT| 0.14 seconds     | ⭐⭐⭐⭐ | Optional     | No (after model download) |
+
+## When to Use Gemini Instead
+
+If you have internet access and want the best overall translation quality, use the Gemini backend instead of MarianMT. Gemini generally produces more natural and higher-quality translations, especially for cloud-based workflows.
 
 ## Production Usage Examples
 

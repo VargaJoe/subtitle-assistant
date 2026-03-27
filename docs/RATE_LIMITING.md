@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Gemini provider includes robust rate limiting to prevent exceeding API quotas and avoid DOS-ing Google's servers. Rate limits are **persistent across sessions** and **shared across multiple app instances**.
+The Gemini provider includes robust rate limiting for online/cloud translation use. This prevents exceeding API quotas and keeps requests within Google's published limits. Rate limits are **persistent across sessions** and **shared across multiple app instances**.
 
 ## Actual Gemini API Limits (from Google AI Studio)
 
@@ -52,6 +52,10 @@ The Gemini provider includes robust rate limiting to prevent exceeding API quota
 - Built into GeminiProvider
 - Automatic token estimation
 - No code changes needed in translator
+
+## Recommended Usage
+
+Use Gemini when you have internet access and want the highest translation quality. For offline or local-only workflows, MarianMT is the better fit, but it does not need this rate limiting layer.
 
 ## How It Works
 

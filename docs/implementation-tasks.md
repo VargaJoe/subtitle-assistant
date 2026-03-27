@@ -4,51 +4,7 @@
 
 ## In-Progress Stories
 
-### Gemini Provider + Multiline Stretching Fix (CURRENT SESSION)
-- [x] **Critical Bug Fix: Cross-Entry Timestamp Misalignment** - COMPLETED ✓
-  - [x] Investigated user reports of text appearing at wrong timestamps
-  - [x] Found Bug #1: Integer truncation in proportional splitting causing rounding accumulation
-  - [x] Found Bug #2: Silent entry loss when zip() receives mismatched counts
-  - [x] Found Bug #3: No validation of split_translations count matching group_entries
-  - [x] Fixed: Implemented cumulative allocation algorithm with proper rounding
-  - [x] Fixed: Added entry count safety checks and empty string padding
-  - [x] Fixed: Added validation before zip() to prevent silent entry loss
-  - [x] Created test_cross_entry_splitting.py demonstrating bug and validating fix
-  - [x] Test results: Improved from 11:1:2 (78.6%:7.1%:14.3%) to 12:1:1 (85.7%:7.1%:7.1%) distribution
-
-- [x] **Multiline Translation Stretching Fix** - COMPLETED ✓
-  - [x] Understanding clarified: Two separate aspects covered
-  - [x] Cross-entry preservation: Already working via Story 09C implementation (now bug-fixed)
-  - [x] Within-entry line preservation: Fixed with original_line_count tracking
-  - [x] Both aspects now properly implemented and tested
-  
-- [x] **Gemini Translation Slippage Fix** - COMPLETED ✓
-  - [x] Root cause identified: Gemini merges cross-entry sentence continuations into a
-        single output key, shifting all subsequent entry translations by 1+ positions
-  - [x] Example: entries 85 ("You've been ducking me") + 86 ("since I got back from Sweden.")
-        were merged into key "85", making every entry after that one position off
-  - [x] Fix: pre-merge cross-entry sentence groups before the API call in
-        `_translate_entries_api_batch()`, reusing `_detect_cross_entry_groups()`
-  - [x] After translation, merged results are split back proportionally per entry
-        using existing `_split_translation_to_entries()` logic
-  - [x] 5 new unit tests added in `tests/unit/test_api_batch_cross_entry.py` — all passing
-
-- [ ] **Gemini Provider Integration** - IN PROGRESS
-  - [x] Created GeminiProvider class (200 lines) following plugin architecture
-  - [x] Implements BaseTranslationProvider interface with @translation_provider("gemini") decorator
-  - [x] Add google-generativeai to requirements.txt ✓
-  - [x] Add Gemini configuration to config.yaml (api_key, model selection) ✓
-  - [x] **HTML-safe Gemini API-batch formatting fix** - COMPLETED ✓
-    - [x] Strip HTML tags before Gemini sees API-batch texts
-    - [x] Restore tags after translation and keep each output line self-contained
-    - [x] Add regression coverage for API-batch HTML preservation and line-safe splitting
-  - [ ] Test Gemini provider integration end-to-end
-  - [ ] Add Gemini API key setup guide to documentation
-  - [ ] Optional: Add quality diagnostics for comparing providers
-
----
-
-## Recently Completed Stories
+No stories in progress
 
 ## Planned Stories
 
@@ -351,3 +307,45 @@
 - [x] Model evaluation and validation
 - [x] Integration with existing MarianMT backend
 - [x] Documentation and user guides for training feature
+
+### Gemini Provider + Multiline Stretching Fix
+- [x] **Critical Bug Fix: Cross-Entry Timestamp Misalignment** - COMPLETED ✓
+  - [x] Investigated user reports of text appearing at wrong timestamps
+  - [x] Found Bug #1: Integer truncation in proportional splitting causing rounding accumulation
+  - [x] Found Bug #2: Silent entry loss when zip() receives mismatched counts
+  - [x] Found Bug #3: No validation of split_translations count matching group_entries
+  - [x] Fixed: Implemented cumulative allocation algorithm with proper rounding
+  - [x] Fixed: Added entry count safety checks and empty string padding
+  - [x] Fixed: Added validation before zip() to prevent silent entry loss
+  - [x] Created test_cross_entry_splitting.py demonstrating bug and validating fix
+  - [x] Test results: Improved from 11:1:2 (78.6%:7.1%:14.3%) to 12:1:1 (85.7%:7.1%:7.1%) distribution
+
+- [x] **Multiline Translation Stretching Fix** - COMPLETED ✓
+  - [x] Understanding clarified: Two separate aspects covered
+  - [x] Cross-entry preservation: Already working via Story 09C implementation (now bug-fixed)
+  - [x] Within-entry line preservation: Fixed with original_line_count tracking
+  - [x] Both aspects now properly implemented and tested
+  
+- [x] **Gemini Translation Slippage Fix** - COMPLETED ✓
+  - [x] Root cause identified: Gemini merges cross-entry sentence continuations into a
+        single output key, shifting all subsequent entry translations by 1+ positions
+  - [x] Example: entries 85 ("You've been ducking me") + 86 ("since I got back from Sweden.")
+        were merged into key "85", making every entry after that one position off
+  - [x] Fix: pre-merge cross-entry sentence groups before the API call in
+        `_translate_entries_api_batch()`, reusing `_detect_cross_entry_groups()`
+  - [x] After translation, merged results are split back proportionally per entry
+        using existing `_split_translation_to_entries()` logic
+  - [x] 5 new unit tests added in `tests/unit/test_api_batch_cross_entry.py` — all passing
+
+- [ ] **Gemini Provider Integration** - IN PROGRESS
+  - [x] Created GeminiProvider class (200 lines) following plugin architecture
+  - [x] Implements BaseTranslationProvider interface with @translation_provider("gemini") decorator
+  - [x] Add google-generativeai to requirements.txt ✓
+  - [x] Add Gemini configuration to config.yaml (api_key, model selection) ✓
+  - [x] **HTML-safe Gemini API-batch formatting fix** - COMPLETED ✓
+    - [x] Strip HTML tags before Gemini sees API-batch texts
+    - [x] Restore tags after translation and keep each output line self-contained
+    - [x] Add regression coverage for API-batch HTML preservation and line-safe splitting
+- [x] **Documentation Refresh for Provider Guidance** - COMPLETED ✓
+  - [x] Updated English and Hungarian README recommendations to reflect Gemini as the best online option and MarianMT as the best local/offline option
+  - [x] Updated MarianMT and rate limiting docs to match the current provider behavior
