@@ -28,6 +28,15 @@ def split_subtitle_text(text: str, max_length: int = 42, method: str = "even", t
     if not text or max_length < 1:
         return text
 
+    html_pattern = r'<[^>]+>'
+    html_tags = re.findall(html_pattern, text)
+    preserve_html = bool(html_tags)
+    opening_tags = [tag for tag in html_tags if not tag.startswith('</')]
+    closing_tags = [tag for tag in html_tags if tag.startswith('</')]
+
+    if preserve_html:
+        text = re.sub(html_pattern, '', text)
+
     lines = []
     text = text.replace('\r\n', '\n').replace('\r', '\n')
     paragraphs = text.split('\n')
@@ -109,6 +118,11 @@ def split_subtitle_text(text: str, max_length: int = 42, method: str = "even", t
                         if current_line:
                             lines.append(current_line)
     
+    if preserve_html and (opening_tags or closing_tags):
+        prefix = ''.join(opening_tags)
+        suffix = ''.join(closing_tags)
+        lines = [f"{prefix}{line}{suffix}" if line else line for line in lines]
+
     return '\n'.join(lines)
 
 

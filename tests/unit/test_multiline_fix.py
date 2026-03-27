@@ -104,6 +104,31 @@ def test_srt_format_with_multiline():
     print("  ✓ PASSED\n")
 
 
+def test_html_tags_do_not_span_split_lines():
+    """Test that HTML tags are re-applied to every split line instead of spanning lines."""
+
+    print("Test 6: HTML tags stay within each split line")
+
+    entry = SubtitleEntry(
+        index=2,
+        start_time=timedelta(seconds=0),
+        end_time=timedelta(seconds=4),
+        text="<i>I never really understood why I was given these powers.</i>",
+        original_line_count=1
+    )
+
+    srt_output = entry.to_srt_format(max_row_length=24)
+    print(f"  SRT output:\n{srt_output}")
+
+    text_lines = srt_output.strip().split('\n')[2:]
+    assert len(text_lines) >= 2, "Expected the text to split into multiple lines"
+    for line in text_lines:
+        assert line.startswith('<i>'), f"Line missing opening tag: {line!r}"
+        assert line.endswith('</i>'), f"Line missing closing tag: {line!r}"
+
+    print("  ✓ PASSED\n")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("Testing Multiline Subtitle Preservation Fix")

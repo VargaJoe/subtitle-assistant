@@ -38,6 +38,10 @@
   - [x] Implements BaseTranslationProvider interface with @translation_provider("gemini") decorator
   - [x] Add google-generativeai to requirements.txt ✓
   - [x] Add Gemini configuration to config.yaml (api_key, model selection) ✓
+  - [x] **HTML-safe Gemini API-batch formatting fix** - COMPLETED ✓
+    - [x] Strip HTML tags before Gemini sees API-batch texts
+    - [x] Restore tags after translation and keep each output line self-contained
+    - [x] Add regression coverage for API-batch HTML preservation and line-safe splitting
   - [ ] Test Gemini provider integration end-to-end
   - [ ] Add Gemini API key setup guide to documentation
   - [ ] Optional: Add quality diagnostics for comparing providers

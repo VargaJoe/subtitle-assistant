@@ -69,6 +69,7 @@ class GeminiProvider(BaseTranslationProvider):
                 "or gemini_api_key in config."
             )
 
+        assert genai is not None
         self.client = genai.Client(api_key=api_key)
 
         # Configuration — also read from env vars (set in .env)
@@ -99,7 +100,8 @@ class GeminiProvider(BaseTranslationProvider):
             f"Translate from {self.source_lang} to {self.target_lang}. "
             f"Keep translations concise for subtitles. "
             f"Preserve names and technical terms. "
-            f"Maintain tone and formality of original."
+            f"Maintain tone and formality of original. "
+            f"Preserve HTML formatting tags exactly as provided and never move them across entries."
         )
 
     # ------------------------------------------------------------------
@@ -189,6 +191,8 @@ class GeminiProvider(BaseTranslationProvider):
                     raise
                 self.logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
 
+        raise RuntimeError("Gemini translation failed after retries")
+
     def translate_with_fallback(self, text: str, context: Optional[str] = None) -> str:
         return self.translate_with_retry(text, context)
 
@@ -256,6 +260,7 @@ class GeminiProvider(BaseTranslationProvider):
             if not waited:
                 raise RuntimeError(f"Gemini rate limit exceeded: {error_msg}")
 
+        assert genai_types is not None
         target_lang_upper = self.target_lang.upper()
         source_lang_upper = self.source_lang.upper()
 
@@ -269,6 +274,7 @@ class GeminiProvider(BaseTranslationProvider):
             f"  - Keep EVERY numeric key. Return exactly {len(texts)} keys.\n"
             f"  - Do NOT merge or split entries — one input key = one output key.\n"
             f"  - Translate meaning faithfully; keep names and proper nouns.\n"
+            f"  - Preserve any HTML formatting tags exactly as they appear. Do not move tags across entries.\n"
             f"  - Respond ONLY with a valid JSON object. No other text.\n\n"
             f"INPUT ({len(texts)} entries):\n"
             f"{input_json}\n\n"
@@ -276,6 +282,7 @@ class GeminiProvider(BaseTranslationProvider):
         )
 
         try:
+            assert genai_types is not None
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=prompt,
@@ -470,6 +477,7 @@ class GeminiProvider(BaseTranslationProvider):
         if not text.strip():
             return text
         try:
+            assert genai_types is not None
             response = self.client.models.generate_content(
                 model=self.model_name,
                 contents=f"Translate: {text}",

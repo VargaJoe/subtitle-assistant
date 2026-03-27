@@ -67,6 +67,10 @@ class BaseTranslationProvider(ABC):
         """Translate multiple texts in batch."""
         pass
 
+    def translate_api_batch(self, texts: List[str]) -> List[str]:
+        """Translate multiple texts using API-level batching when supported."""
+        return self.translate_batch(texts)
+
     @abstractmethod
     def translate_whole_file(self, content: str) -> str:
         """Translate entire file content."""

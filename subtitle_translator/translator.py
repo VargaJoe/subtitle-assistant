@@ -233,14 +233,29 @@ class SubtitleTranslator:
         groups = self._detect_cross_entry_groups(entries)
 
         collapsed_texts: List[str] = []
+        group_payloads: List[dict] = []
         for group_indices in groups:
             group_entries = [entries[i] for i in group_indices]
-            if len(group_entries) == 1:
-                collapsed_texts.append(group_entries[0].text)
+            has_html = self.config.preserve_formatting and any(
+                self._contains_html_tags(entry.text) for entry in group_entries
+            )
+
+            if has_html:
+                combined_text, entry_html_info = self._combine_entries_with_html(group_entries)
+            elif len(group_entries) == 1:
+                combined_text = group_entries[0].text
+                entry_html_info = None
             else:
                 # Join continuation entries into a single sentence
-                combined = ' '.join(e.text.strip() for e in group_entries)
-                collapsed_texts.append(combined)
+                combined_text = ' '.join(e.text.strip() for e in group_entries)
+                entry_html_info = None
+
+            collapsed_texts.append(combined_text)
+            group_payloads.append({
+                "entries": group_entries,
+                "has_html": has_html,
+                "html_info": entry_html_info,
+            })
 
         merged_groups_count = sum(1 for g in groups if len(g) > 1)
         if merged_groups_count:
@@ -274,12 +289,17 @@ class SubtitleTranslator:
         # Step 3: expand translated collapsed texts back to original entries.
         # ------------------------------------------------------------------
         translated_entries: List[SubtitleEntry] = []
-        for group_indices, translated_text in zip(groups, translated_collapsed):
-            group_entries = [entries[i] for i in group_indices]
+        for payload, translated_text in zip(group_payloads, translated_collapsed):
+            group_entries = payload["entries"]
 
             if len(group_entries) == 1:
                 # Single entry — direct mapping, no splitting needed.
                 entry = group_entries[0]
+                if payload["has_html"] and payload["html_info"]:
+                    split_translations = self._split_translation_with_html(
+                        translated_text, group_entries, payload["html_info"]
+                    )
+                    translated_text = split_translations[0] if split_translations else translated_text
                 translated_entry = SubtitleEntry(
                     index=entry.index,
                     start_time=entry.start_time,
@@ -292,7 +312,12 @@ class SubtitleTranslator:
                 progress.add_translated_entry(translated_entry)
             else:
                 # Multi-entry group: split translated sentence proportionally.
-                split_translations = self._split_translation_to_entries(translated_text, group_entries)
+                if payload["has_html"] and payload["html_info"]:
+                    split_translations = self._split_translation_with_html(
+                        translated_text, group_entries, payload["html_info"]
+                    )
+                else:
+                    split_translations = self._split_translation_to_entries(translated_text, group_entries)
 
                 # Safety guard: pad / truncate if split count is off.
                 if len(split_translations) != len(group_entries):

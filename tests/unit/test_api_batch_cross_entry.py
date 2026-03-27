@@ -37,7 +37,7 @@ def _make_translator(translate_fn=None) -> SubtitleTranslator:
     translator.config = config
     translator.logger = mock.MagicMock()
     translator.parser = mock.MagicMock()
-    translator.multi_model_orchestrator = None
+    translator.multi_model_orchestrator = mock.MagicMock()
 
     mock_provider = mock.MagicMock()
     mock_provider.supports_api_batch = True
@@ -182,6 +182,42 @@ class TestApiBatchCrossEntryPreMerge(unittest.TestCase):
         for word in ["Került", "engem", "mióta", "Svédország."]:
             self.assertIn(word, combined_output,
                           f"Word '{word}' missing from output: {combined_output!r}")
+
+    def test_html_tags_are_preserved_in_api_batch_output(self):
+        """HTML-formatted entries should be cleaned for the provider and restored in output."""
+        entries = [
+            _entry(1, "<i>I never really understood why I was given these powers.</i>", 0.0, 2.5),
+        ]
+
+        captured_texts: list = []
+
+        def fake_batch(texts):
+            captured_texts.extend(texts)
+            return ["Ez egy nagyon hosszú magyar fordítás, amelynek több sorba kell tördelődnie a kimenetben."]
+
+        translator = _make_translator(fake_batch)
+        progress = mock.MagicMock()
+        progress.total_entries = len(entries)
+
+        added: list = []
+        progress.add_translated_entry.side_effect = added.append
+
+        translator._translate_entries_api_batch(entries, progress)
+
+        self.assertEqual(len(captured_texts), 1)
+        self.assertNotIn("<i>", captured_texts[0])
+        self.assertNotIn("</i>", captured_texts[0])
+
+        self.assertEqual(len(added), 1)
+        self.assertIn("<i>", added[0].text)
+        self.assertIn("</i>", added[0].text)
+
+        formatted = added[0].to_srt_format(max_row_length=24)
+        text_lines = formatted.strip().split("\n")[2:]
+        self.assertGreaterEqual(len(text_lines), 2)
+        for line in text_lines:
+            self.assertTrue(line.startswith("<i>"), f"Line missing opening tag: {line!r}")
+            self.assertTrue(line.endswith("</i>"), f"Line missing closing tag: {line!r}")
 
 
 if __name__ == "__main__":
