@@ -46,7 +46,7 @@ except Exception as e:
 # Test 3: Verify CLI script exists
 print("\nTest 3: Checking CLI script...")
 try:
-    train_script = Path(__file__).parent / "train_marian.py"
+    train_script = Path(__file__).parent.parent.parent / "train_marian.py"
     assert train_script.exists()
     print(f"✅ CLI script exists: {train_script}")
 except Exception as e:
@@ -56,7 +56,7 @@ except Exception as e:
 # Test 4: Verify GUI script exists
 print("\nTest 4: Checking GUI script...")
 try:
-    gui_script = Path(__file__).parent / "train_marian_gui.ps1"
+    gui_script = Path(__file__).parent.parent.parent / "train_marian_gui.ps1"
     assert gui_script.exists()
     print(f"✅ GUI script exists: {gui_script}")
 except Exception as e:
@@ -66,7 +66,7 @@ except Exception as e:
 # Test 5: Verify documentation exists
 print("\nTest 5: Checking documentation...")
 try:
-    doc_file = Path(__file__).parent / "docs" / "MARIANMT_TRAINING_GUIDE.md"
+    doc_file = Path(__file__).parent.parent.parent / "docs" / "MARIANMT_TRAINING_GUIDE.md"
     assert doc_file.exists()
     print(f"✅ Documentation exists: {doc_file}")
 except Exception as e:
@@ -76,10 +76,10 @@ except Exception as e:
 # Test 6: Verify example files exist
 print("\nTest 6: Checking example files...")
 try:
-    example_json = Path(__file__).parent / "examples" / "training_data_example.json"
+    example_json = Path(__file__).parent.parent.parent / "examples" / "training_data_example.json"
     assert example_json.exists()
     
-    example_readme = Path(__file__).parent / "examples" / "README.md"
+    example_readme = Path(__file__).parent.parent.parent / "examples" / "README.md"
     assert example_readme.exists()
     
     print(f"✅ Example files exist")

@@ -9,8 +9,6 @@ import time
 
 from .config import Config
 from .srt_parser import SRTParser, SubtitleEntry
-from .ollama_client import OllamaClient
-from .marian_client import MarianClient
 from .progress import TranslationProgress, ProgressMode
 from .multi_model import MultiModelOrchestrator
 
@@ -24,12 +22,11 @@ class SubtitleTranslator:
         self.parser = SRTParser()
         
         # Initialize translation client based on backend selection
-        if config.translation_backend == "ollama":
-            self.translation_client = OllamaClient(config)
-        elif config.translation_backend == "marian":
-            self.translation_client = MarianClient(config)
-        else:
-            raise ValueError(f"Unsupported translation backend: {config.translation_backend}")
+        from .core import registry
+        try:
+            self.translation_client = registry.get_provider(config.translation_backend, config.__dict__)
+        except ValueError as e:
+            raise ValueError(f"Unsupported translation backend: {config.translation_backend}. {e}")
         
         # For backwards compatibility, set ollama_client to the translation client if it's Ollama
         if config.translation_backend == "ollama":
@@ -138,14 +135,20 @@ class SubtitleTranslator:
                 self.logger.info(f"Resuming translation: {remaining} entries remaining")
             
             # Translate entries based on mode
-            if self.config.translation_mode == "multi-model":
+            if getattr(self.translation_client, "supports_api_batch", False):
+                # Provider supports true API-level batch (e.g. Gemini):
+                # send all entries as chunked JSON arrays — overrides all mode settings.
+                # Multi-model / line-by-line modes don't make sense for external API providers.
+                # NOTE: do NOT .extend() here — _translate_entries_api_batch already appends
+                # to progress.translated_entries via add_translated_entry() internally.
+                self._translate_entries_api_batch(entries[start_index:], progress, start_index)
+            elif self.config.translation_mode == "multi-model":
                 # Use multi-model pipeline for the whole file
                 progress.translated_entries = self.multi_model_orchestrator.translate_with_multimodel(entries, progress)
                 progress.current_index = len(progress.translated_entries)
             elif self.config.translation_mode == ProgressMode.BATCH:
-                progress.translated_entries.extend(
-                    self._translate_entries_batch(entries[start_index:], progress, start_index)
-                )
+                # Same rule: method populates progress internally, don't .extend()
+                self._translate_entries_batch(entries[start_index:], progress, start_index)
             elif self.config.translation_mode == ProgressMode.WHOLE_FILE:
                 if start_index > 0:
                     self.logger.warning("Whole-file mode doesn't support resume, starting fresh")
@@ -155,9 +158,8 @@ class SubtitleTranslator:
                 progress.translated_entries = self._translate_entries_whole_file(entries)
                 progress.current_index = total_entries
             else:  # line-by-line (default)
-                progress.translated_entries.extend(
-                    self._translate_entries_line_by_line(entries[start_index:], progress, start_index)
-                )
+                # Same rule: method populates progress internally, don't .extend()
+                self._translate_entries_line_by_line(entries[start_index:], progress, start_index)
             
             # Write output file
             all_entries = progress.translated_entries
@@ -196,7 +198,200 @@ class SubtitleTranslator:
             except Exception as save_error:
                 self.logger.error(f"Failed to save progress: {save_error}")
             raise
-    
+
+    def _translate_entries_api_batch(self, entries: List[SubtitleEntry], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
+        """
+        Translate subtitle entries using the provider's true API-batch capability.
+
+        Instead of one API call per entry, this collects all texts and calls
+        provider.translate_api_batch() which sends them as chunked JSON arrays.
+        For a 1500-entry file this means ~5-15 API calls instead of 1500,
+        which stays well within Gemini's 20 requests/day free-tier limit.
+
+        Cross-entry sentence continuations are pre-merged before the API call so
+        that smart models (e.g. Gemini) do not combine them into a single output key
+        and shift all subsequent translations.  After the call the merged translation
+        is split back proportionally across the original entries.
+        """
+        if not entries:
+            return []
+
+        total = len(entries)
+        self.logger.info(
+            f"Using API-batch translation for {total} entries via "
+            f"{type(self.translation_client).__name__}"
+        )
+
+        # ------------------------------------------------------------------
+        # Step 1: detect cross-entry sentence groups and pre-merge them.
+        # Without this, a smart model will "helpfully" combine e.g. entries
+        # 85 ("Finally. You've been ducking me") and 86 ("since I got back
+        # from Sweden.") into a single translated key and shift every
+        # subsequent entry by one — silently, because all 200 keys are still
+        # present in the response.
+        # ------------------------------------------------------------------
+        groups = self._detect_cross_entry_groups(entries)
+
+        collapsed_texts: List[str] = []
+        group_payloads: List[dict] = []
+        for group_indices in groups:
+            group_entries = [entries[i] for i in group_indices]
+            has_html = self.config.preserve_formatting and any(
+                self._contains_html_tags(entry.text) for entry in group_entries
+            )
+
+            if has_html:
+                combined_text, entry_html_info = self._combine_entries_with_html(group_entries)
+            elif len(group_entries) == 1:
+                combined_text = group_entries[0].text
+                entry_html_info = None
+            else:
+                # Join continuation entries into a single sentence
+                combined_text = ' '.join(e.text.strip() for e in group_entries)
+                entry_html_info = None
+
+            collapsed_texts.append(combined_text)
+            group_payloads.append({
+                "entries": group_entries,
+                "has_html": has_html,
+                "html_info": entry_html_info,
+            })
+
+        merged_groups_count = sum(1 for g in groups if len(g) > 1)
+        if merged_groups_count:
+            self.logger.info(
+                f"Pre-merged {merged_groups_count} cross-entry sentence group(s) "
+                f"({total} entries → {len(collapsed_texts)} collapsed texts sent to API)"
+            )
+
+        # ------------------------------------------------------------------
+        # Step 2: call the provider with the (possibly collapsed) text list.
+        # ------------------------------------------------------------------
+        try:
+            translated_collapsed = self.translation_client.translate_api_batch(collapsed_texts)
+        except Exception as e:
+            # Hard fail — do NOT fall back to hundreds of individual API calls.
+            # A batch failure on an external provider must stop the process
+            # to avoid burning through daily rate limits silently.
+            raise RuntimeError(
+                f"API-batch translation failed and fallback is disabled for external providers. "
+                f"Fix the batch issue before retrying. Original error: {e}"
+            ) from e
+
+        if len(translated_collapsed) != len(collapsed_texts):
+            raise RuntimeError(
+                f"API-batch returned {len(translated_collapsed)} results for "
+                f"{len(collapsed_texts)} collapsed entries. "
+                f"Possible truncation. Hard-failing to prevent silent data loss."
+            )
+
+        # ------------------------------------------------------------------
+        # Step 3: expand translated collapsed texts back to original entries.
+        # ------------------------------------------------------------------
+        translated_entries: List[SubtitleEntry] = []
+        for payload, translated_text in zip(group_payloads, translated_collapsed):
+            group_entries = payload["entries"]
+
+            if len(group_entries) == 1:
+                # Single entry — direct mapping, no splitting needed.
+                entry = group_entries[0]
+                if payload["has_html"] and payload["html_info"]:
+                    split_translations = self._split_translation_with_html(
+                        translated_text, group_entries, payload["html_info"]
+                    )
+                    translated_text = split_translations[0] if split_translations else translated_text
+                translated_entry = SubtitleEntry(
+                    index=entry.index,
+                    start_time=entry.start_time,
+                    end_time=entry.end_time,
+                    text=translated_text,
+                    original_text=entry.text,
+                    original_line_count=entry.original_line_count,
+                )
+                translated_entries.append(translated_entry)
+                progress.add_translated_entry(translated_entry)
+            else:
+                # Multi-entry group: split translated sentence proportionally.
+                if payload["has_html"] and payload["html_info"]:
+                    split_translations = self._split_translation_with_html(
+                        translated_text, group_entries, payload["html_info"]
+                    )
+                else:
+                    split_translations = self._split_translation_to_entries(translated_text, group_entries)
+
+                # Safety guard: pad / truncate if split count is off.
+                if len(split_translations) != len(group_entries):
+                    self.logger.warning(
+                        f"Cross-entry split mismatch: expected {len(group_entries)} parts, "
+                        f"got {len(split_translations)}. Padding/truncating."
+                    )
+                    while len(split_translations) < len(group_entries):
+                        split_translations.append(split_translations[-1] if split_translations else "")
+                    split_translations = split_translations[:len(group_entries)]
+
+                for entry, split_text in zip(group_entries, split_translations):
+                    translated_entry = SubtitleEntry(
+                        index=entry.index,
+                        start_time=entry.start_time,
+                        end_time=entry.end_time,
+                        text=split_text,
+                        original_text=entry.text,
+                        original_line_count=entry.original_line_count,
+                    )
+                    translated_entries.append(translated_entry)
+                    progress.add_translated_entry(translated_entry)
+
+            if self.config.verbose:
+                current = start_offset + len(translated_entries)
+                total_with_offset = progress.total_entries
+                pct = (current / total_with_offset) * 100
+                print(f"\rTranslating: {pct:.1f}% ({current}/{total_with_offset})", end="", flush=True)
+
+        if self.config.verbose:
+            print()
+
+        return translated_entries
+
+    def _translate_entries_single(self, entries: List[SubtitleEntry], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
+        """
+        Direct single-entry fallback for API-batch mode.
+        Does NOT go through multi-model; calls translate_with_retry directly.
+        Used only when the batch call fails or returns wrong count.
+        """
+        translated_entries: List[SubtitleEntry] = []
+        total_with_offset = progress.total_entries
+
+        for i, entry in enumerate(entries):
+            current_index = start_offset + i + 1
+            if self.config.verbose:
+                pct = (current_index / total_with_offset) * 100
+                print(f"\rFallback single: {pct:.1f}% ({current_index}/{total_with_offset})", end="", flush=True)
+
+            try:
+                translated_text = self.translation_client.translate_with_retry(entry.text)
+            except Exception as fe:
+                self.logger.warning(
+                    f"Fallback single translation failed for entry {entry.index}: {fe}. "
+                    f"Keeping original text."
+                )
+                translated_text = entry.text
+
+            translated_entry = SubtitleEntry(
+                index=entry.index,
+                start_time=entry.start_time,
+                end_time=entry.end_time,
+                text=translated_text,
+                original_text=entry.text,
+                original_line_count=entry.original_line_count,
+            )
+            translated_entries.append(translated_entry)
+            progress.add_translated_entry(translated_entry)
+
+        if self.config.verbose:
+            print()
+
+        return translated_entries
+
     def _translate_entries_line_by_line(self, entries: List[SubtitleEntry], progress: TranslationProgress, start_offset: int = 0) -> List[SubtitleEntry]:
         """
         Translate subtitle entries one by one with progress tracking.
@@ -274,7 +469,8 @@ class SubtitleTranslator:
                 start_time=entry.start_time,
                 end_time=entry.end_time,
                 text=translated_text,
-                original_text=entry.text
+                original_text=entry.text,
+                original_line_count=entry.original_line_count  # Preserve original line count
             )
             
             translated_entries.append(translated_entry)
@@ -346,7 +542,8 @@ class SubtitleTranslator:
                         start_time=entry.start_time,
                         end_time=entry.end_time,
                         text=translated_text,
-                        original_text=entry.text
+                        original_text=entry.text,
+                        original_line_count=entry.original_line_count
                     )
                     
                     if entry_index < batch_start:
@@ -383,7 +580,8 @@ class SubtitleTranslator:
                             start_time=entry.start_time,
                             end_time=entry.end_time,
                             text=translated_text,
-                            original_text=entry.text
+                            original_text=entry.text,
+                            original_line_count=entry.original_line_count
                         )
                         
                         if entry_index not in processed_indices:
@@ -481,7 +679,8 @@ class SubtitleTranslator:
                     start_time=entry.start_time,
                     end_time=entry.end_time,
                     text=translated_text,
-                    original_text=entry.text
+                    original_text=entry.text,
+                    original_line_count=entry.original_line_count
                 )
                 translated_entries.append(translated_entry)
             else:
@@ -803,7 +1002,8 @@ class SubtitleTranslator:
                         index=entry.index,
                         start_time=entry.start_time,
                         end_time=entry.end_time,
-                        text=translated_text
+                        text=translated_text,
+                        original_line_count=entry.original_line_count
                     )
                     translated_entries.append(translated_entry)
                     
@@ -845,13 +1045,25 @@ class SubtitleTranslator:
                             translated_combined, group_entries
                         )
                     
+                    # CRITICAL SAFETY CHECK: Verify entry count matches
+                    if len(split_translations) != len(group_entries):
+                        self.logger.error(
+                            f"Split translation count mismatch for group {group_indices}: "
+                            f"Expected {len(group_entries)}, got {len(split_translations)}. "
+                            f"Using fallback."
+                        )
+                        # Fallback: use original entries
+                        translated_entries.extend(group_entries)
+                        continue
+                    
                     # Create translated entries with original timing
                     for i, (original_entry, split_text) in enumerate(zip(group_entries, split_translations)):
                         translated_entry = SubtitleEntry(
                             index=original_entry.index,
                             start_time=original_entry.start_time,
                             end_time=original_entry.end_time,
-                            text=split_text
+                            text=split_text,
+                            original_line_count=original_entry.original_line_count
                         )
                         translated_entries.append(translated_entry)
                         
@@ -879,7 +1091,7 @@ class SubtitleTranslator:
             original_entries: List of original entries that formed the sentence
             
         Returns:
-            List of text portions for each original entry
+            List of text portions for each original entry (GUARANTEED same length as original_entries)
         """
         if len(original_entries) == 1:
             return [translated_text]
@@ -902,25 +1114,44 @@ class SubtitleTranslator:
                 start_idx = end_idx
             return result
         
-        # Split proportionally by character count
+        # Split proportionally using CUMULATIVE approach to avoid rounding errors
         translated_words = translated_text.split()
         total_words = len(translated_words)
+        
+        if total_words == 0:
+            # Edge case: empty translation
+            return [''] * len(original_entries)
         
         result = []
         words_used = 0
         
         for i, original_entry in enumerate(original_entries):
             if i == len(original_entries) - 1:
-                # Last entry gets all remaining words
+                # Last entry gets all remaining words (prevents rounding errors)
                 portion_words = translated_words[words_used:]
             else:
-                # Calculate proportional word count
-                proportion = original_lengths[i] / total_original_length
-                words_for_this_entry = max(1, int(total_words * proportion))
+                # Calculate cumulative allocation to avoid rounding drift
+                # Target position in translated text based on original proportions
+                proportion_so_far = sum(original_lengths[:i+1]) / total_original_length
+                target_words_cumulative = int(total_words * proportion_so_far + 0.5)  # Round to nearest
+                
+                # Take words from current position to target
+                words_for_this_entry = max(1, target_words_cumulative - words_used)  # At least 1 word
                 portion_words = translated_words[words_used:words_used + words_for_this_entry]
-                words_used += words_for_this_entry
+                words_used += len(portion_words)  # Use actual count, not calculated count
             
-            result.append(' '.join(portion_words))
+            result.append(' '.join(portion_words) if portion_words else '')
+        
+        # CRITICAL: Verify we always return correct number of entries
+        if len(result) != len(original_entries):
+            self.logger.error(
+                f"Entry count mismatch in split: Expected {len(original_entries)}, got {len(result)}. "
+                f"Padding with empty strings."
+            )
+            # Pad or truncate to match original entry count
+            while len(result) < len(original_entries):
+                result.append('')
+            result = result[:len(original_entries)]
         
         return result
 

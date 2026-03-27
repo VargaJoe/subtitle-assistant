@@ -4,9 +4,7 @@
 
 ## In-Progress Stories
 
-Currently no stories in progress.
-
----
+No stories in progress
 
 ## Planned Stories
 
@@ -251,6 +249,34 @@ Currently no stories in progress.
 - [x] Added model licensing and attribution documentation
 - [x] Created PowerShell automation scripts for batch processing
 
+### Story 09F - Plugin System Architecture
+- [x] **Core Plugin Infrastructure**:
+  - [x] Abstract BaseTranslationProvider class with standardized interface
+  - [x] ProviderCapabilities dataclass for feature metadata
+  - [x] TranslationProviderRegistry singleton with factory pattern
+  - [x] @translation_provider decorator for automatic registration
+  - [x] Auto-discovery system loading providers from providers/ directory
+- [x] **Provider Migration**:
+  - [x] MarianProvider class implementing BaseTranslationProvider interface
+  - [x] OllamaProvider class implementing BaseTranslationProvider interface
+  - [x] Full backward compatibility with existing MarianClient and OllamaClient
+  - [x] Registry-based provider instantiation replacing hardcoded if-elif selection
+- [x] **System Integration**:
+  - [x] Updated SubtitleTranslator to use registry.get_provider() for backend selection
+  - [x] Modified main.py argument parsing to support dynamic provider selection
+  - [x] Added --list-providers command for provider discovery and status checking
+  - [x] Updated config.py default backend to "marian" for production performance
+- [x] **Batch Processing Enhancement**:
+  - [x] Enhanced translate_all_srt.ps1 with dynamic -Backend parameter support
+  - [x] Added -ListProviders switch for provider enumeration
+  - [x] Removed hardcoded backend restrictions allowing any registered provider
+  - [x] Improved configuration display showing backend-specific capabilities
+- [x] **Extensibility Features**:
+  - [x] User plugin directory support (~/.subtitle_translator/plugins/)
+  - [x] Plugin loading with error handling and validation
+  - [x] Provider capability reporting (batch support, whole-file support, languages)
+  - [x] Zero-code-change provider addition through decorator pattern
+
 ### Story 12 - Subtitle Row Splitting
 - [x] **Configuration System**:
   - [x] Added max_row_length (default: 42) and row_split_method (default: 'even') to config.yaml
@@ -281,3 +307,45 @@ Currently no stories in progress.
 - [x] Model evaluation and validation
 - [x] Integration with existing MarianMT backend
 - [x] Documentation and user guides for training feature
+
+### Gemini Provider + Multiline Stretching Fix
+- [x] **Critical Bug Fix: Cross-Entry Timestamp Misalignment** - COMPLETED ✓
+  - [x] Investigated user reports of text appearing at wrong timestamps
+  - [x] Found Bug #1: Integer truncation in proportional splitting causing rounding accumulation
+  - [x] Found Bug #2: Silent entry loss when zip() receives mismatched counts
+  - [x] Found Bug #3: No validation of split_translations count matching group_entries
+  - [x] Fixed: Implemented cumulative allocation algorithm with proper rounding
+  - [x] Fixed: Added entry count safety checks and empty string padding
+  - [x] Fixed: Added validation before zip() to prevent silent entry loss
+  - [x] Created test_cross_entry_splitting.py demonstrating bug and validating fix
+  - [x] Test results: Improved from 11:1:2 (78.6%:7.1%:14.3%) to 12:1:1 (85.7%:7.1%:7.1%) distribution
+
+- [x] **Multiline Translation Stretching Fix** - COMPLETED ✓
+  - [x] Understanding clarified: Two separate aspects covered
+  - [x] Cross-entry preservation: Already working via Story 09C implementation (now bug-fixed)
+  - [x] Within-entry line preservation: Fixed with original_line_count tracking
+  - [x] Both aspects now properly implemented and tested
+  
+- [x] **Gemini Translation Slippage Fix** - COMPLETED ✓
+  - [x] Root cause identified: Gemini merges cross-entry sentence continuations into a
+        single output key, shifting all subsequent entry translations by 1+ positions
+  - [x] Example: entries 85 ("You've been ducking me") + 86 ("since I got back from Sweden.")
+        were merged into key "85", making every entry after that one position off
+  - [x] Fix: pre-merge cross-entry sentence groups before the API call in
+        `_translate_entries_api_batch()`, reusing `_detect_cross_entry_groups()`
+  - [x] After translation, merged results are split back proportionally per entry
+        using existing `_split_translation_to_entries()` logic
+  - [x] 5 new unit tests added in `tests/unit/test_api_batch_cross_entry.py` — all passing
+
+- [ ] **Gemini Provider Integration** - IN PROGRESS
+  - [x] Created GeminiProvider class (200 lines) following plugin architecture
+  - [x] Implements BaseTranslationProvider interface with @translation_provider("gemini") decorator
+  - [x] Add google-generativeai to requirements.txt ✓
+  - [x] Add Gemini configuration to config.yaml (api_key, model selection) ✓
+  - [x] **HTML-safe Gemini API-batch formatting fix** - COMPLETED ✓
+    - [x] Strip HTML tags before Gemini sees API-batch texts
+    - [x] Restore tags after translation and keep each output line self-contained
+    - [x] Add regression coverage for API-batch HTML preservation and line-safe splitting
+- [x] **Documentation Refresh for Provider Guidance** - COMPLETED ✓
+  - [x] Updated English and Hungarian README recommendations to reflect Gemini as the best online option and MarianMT as the best local/offline option
+  - [x] Updated MarianMT and rate limiting docs to match the current provider behavior

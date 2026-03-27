@@ -1,6 +1,10 @@
 # Core dependencies for subtitle translation
 requests>=2.31.0
 ollama>=0.3.0
+python-dotenv>=1.0.0  # For loading environment variables from .env files
+
+# Google Gemini backend (optional)
+google-genai>=1.0.0  # For Gemini API translation backend (new SDK, replaces google-generativeai)
 
 # MarianMT backend dependencies (optional)
 torch>=2.0.0  # For MarianMT neural translation

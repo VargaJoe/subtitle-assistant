@@ -10,9 +10,11 @@
 
 Bár a szélesebb közönség gyakran a feliratokat egyfajta luxusnak vagy kényelmi szolgáltatásnak tekinti, **elsődlegesen azokat tartom szem előtt, akiknek nincs alternatívájuk**. A célom, hogy kommunikációs szakadékokat hidaljunk át magas minőségű feliratfordításokkal, és valóban hozzáférhetővé tegyük a szórakoztatást mindenki számára.
 
-## ⚡ Ajánlott: MarianMT Backend
+## ⚡ Ajánlott: Gemini online használathoz, MarianMT helyi használathoz
 
-**MarianMT** jelenleg az elsődlegesen ajánlott backend a feliratfordításhoz, mert megfelelő egyensúlyt kínál sebesség és minőség között.
+**Gemini** a jobb választás, ha elérhető internetkapcsolatod van, és a lehető legjobb fordítási minőséget szeretnéd.
+
+**MarianMT** továbbra is a legjobb helyi/offline opció, és gyors feldolgozás mellett elfogadható feliratminőséget tud adni.
 
 > **Megjegyzés:** Csak az angol→magyar (EN→HU) fordítás lett teljes körűen tesztelve. A MarianMT sok más nyelvpárt is támogat (pl. német→magyar, japán→magyar stb.), de ezek minősége nem ismert, eltérő lehet. A legtöbb nyelvpárhoz elegendő a `--source` és `--target` paramétereket megadni, a modell automatikusan kiválasztásra kerül. A `--model` paraméter csak egyedi vagy nem szabványos modellekhez szükséges.
 
@@ -60,11 +62,16 @@ python main.py --help
 
 ## 🏗️ Fordítási backend rendszerek
 
-### MarianMT Backend (ajánlott)
-- **Legjobb elérhető megoldás:** Megbízható fordítási minőség (~80–90% elfogadható eredmény).
+### MarianMT Backend (helyi / offline használatra ajánlott)
+- **Legjobb helyi opció:** Offline munkafolyamatokhoz megbízható fordítási minőséget ad, feliratfordításhoz általában elfogadható eredménnyel.
 - **Ismert korlátozások:** Előfordulhat, hogy nehezebben kezeli a szlenget, formális/informális beszédváltásokat, és ritka esetekben értelmetlen kimenetet ad.
 - **Nyelvek:** EN↔HU (Helsinki-NLP).
 - **Model:** Helsinki-NLP/opus-mt-en-hu (484MB, automatikusan letöltődik).
+
+### Gemini backend (online használatra ajánlott)
+- **Legjobb minőség:** Internetkapcsolat mellett általában sokkal természetesebb és jobb fordítást ad.
+- **Legjobb használat:** Felhőalapú fordítás, amikor a minőség fontosabb, mint az offline működés.
+- **Megjegyzés:** API-kulcs szükséges, és érvényesek a Gemini rate limitek.
 
 ### Ollama háttér (kísérleti)
 - **Figyelem:** Alapos tesztelés ellenére az Ollama modellek nem adtak kielégítő fordítási minőséget, nem alkalmasak termelési használatra.
@@ -91,7 +98,8 @@ Result: Translates as unified sentence while preserving original timing
 
 | Háttér    | Sebesség / bejegyzés | Jellemzők                                | Minőség            | Ajánlott használat       |
 |-----------|----------------------|------------------------------------------|--------------------|--------------------------|
-| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡   | Cross-entry detection, Smart multiline   | **Jó (80–90%)** ⭐⭐⭐⭐ | **Termelés**            |
+| **Gemini** | Változó | Cloud batch translation, HTML-safe output | **Legjobb online minőség** ⭐⭐⭐⭐⭐ | **Online / felhő** |
+| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡   | Cross-entry detection, Smart multiline   | **Jó (80–90%)** ⭐⭐⭐⭐ | **Offline / helyi termelés** |
 | Ollama    | 5-6s ⚡               | Multi-model pipeline, Context analysis   | **Nem kielégítő**  | Kísérleti / nem ajánlott |
 
 ## 📋 Támogatott nyelvpárok
@@ -104,7 +112,7 @@ Result: Translates as unified sentence while preserving original timing
 
 ## 📖 Dokumentáció
 
-- **[MarianMT User Guide](docs/MARIANMT_USER_GUIDE.md)** - Teljes MarianMT használati útmutató ⭐ **Ajánlott**
+- **[MarianMT User Guide](docs/MARIANMT_USER_GUIDE.md)** - Teljes MarianMT használati útmutató helyi/offline munkafolyamatokhoz
 - **[Multi-Model Architecture Guide](docs/multi-model-guide.md)** - Haladó Ollama pipeline dokumentáció
 - **[Implementation Tasks](docs/implementation-tasks.md)** - Fejlesztési előrehaladás követése
 - **[Traditional Translation Guide](docs/traditional-translation-guide.md)** - Alapfordítási módok
@@ -120,7 +128,8 @@ python main.py "test_sample.srt" --backend marian --verbose
 
 ## ⚠️ Fontos megjegyzések
 
-- **A MarianMT a jelenleg elérhető legjobb fordítási megoldás**, körülbelül 80–90% kielégítő eredménnyel a feliratokra; időnként előfordulhat nehezebb szleng, formális/informális beszédváltás, vagy ritka, nehezen értelmezhető kimenet.
+- **A MarianMT a jelenleg elérhető legjobb helyi/offline fordítási megoldás**, körülbelül 80–90% kielégítő eredménnyel a feliratokra; időnként előfordulhat nehezebb szleng, formális/informális beszédváltás, vagy ritka, nehezen értelmezhető kimenet.
+- Ha van internetkapcsolatod, és a lehető legerősebb fordítási minőséget szeretnéd, a Gemini a jobb választás.
 - A cross-entry mondatfelismerés egyedi MarianMT funkció, amely jobb fordítási minőséget biztosít összetett feliratoknál.
 - Az összes feldolgozás helyben történik — nincs adatküldés külső szolgáltatásoknak.
 - **Ez az eszköz elsődlegesen a hallássérült felhasználók hozzáférését prioritizálja**, nem a kényelmi funkciókat a felhasználók számára.

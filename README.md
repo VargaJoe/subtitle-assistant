@@ -10,9 +10,11 @@
 
 While mainstream perception often views subtitles as some kind of luxury or convenience tool, **my priority is accessibility for those who have no alternative**. To bridge communication gaps by providing high-quality subtitle translations that make entertainment truly accessible to everyone.
 
-## ⚡ Recommended: MarianMT Backend
+## ⚡ Recommended: Gemini for Online Use, MarianMT for Local Use
 
-**MarianMT** is our **primary recommendation** for production subtitle translation, offering the best balance of speed, quality, and reliability.
+**Gemini** is the best choice when you have reliable internet access and want the strongest translation quality.
+
+**MarianMT** remains the best local/offline option, and it can still produce acceptable subtitle quality with very fast processing.
 
 > **Note:** English→Hungarian (EN→HU) and Chinese↔English (ZH↔EN) translations have been tested. MarianMT supports many other language pairs (e.g., German→Hungarian, Japanese→Hungarian, etc.), but their translation quality is untested and may vary. You can specify any supported language pair using the `--source`, `--target`, and `--model` parameters.
 
@@ -71,11 +73,16 @@ python main.py --help
 
 ## 🏗️ Translation Backends
 
-### MarianMT Backend (Recommended)
-- **Best Available Solution:** Reliable translation quality (~80-90% satisfactory results).
+### MarianMT Backend (Recommended for Local / Offline Use)
+- **Best Local Option:** Reliable translation quality for offline workflows, typically good enough for subtitle production.
 - **Known Limitations:** May struggle with slang, formal/informal consistency, and rare unclear outputs.
 - **Languages:** EN↔HU (tested), ZH↔EN (tested), DE↔HU, FR↔HU, ES↔HU, RU↔HU, UK↔HU, JA↔HU, KO↔HU.
 - **Model:** Helsinki-NLP/opus-mt-* models (auto-downloaded to project cache).
+
+### Gemini Backend (Recommended for Online Use)
+- **Best Quality:** Produces noticeably stronger translations when internet access is available.
+- **Best For:** Higher-quality cloud translation, especially when you want the most natural result.
+- **Considerations:** Requires an API key and is subject to Gemini rate limits.
 
 ### Ollama Backend (For Unsupported Language Pairs)
 - **Use Case:** Required for language pairs not supported by MarianMT (e.g., Chinese→Hungarian, Arabic→Hungarian).
@@ -152,7 +159,8 @@ Result: Translates as unified sentence while preserving original timing
 
 | Backend    | Speed per Entry | Features                                 | Quality         | Recommended Use         |
 |------------|----------------|------------------------------------------|-----------------|------------------------|
-| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡ | Cross-entry detection, Smart multiline   | **Good (80-90%)** ⭐⭐⭐⭐ | **Production**         |
+| **Gemini** | Varies | Cloud batch translation, HTML-safe output | **Best online quality** ⭐⭐⭐⭐⭐ | **Online / cloud** |
+| **MarianMT** | **0.14s** ⚡⚡⚡⚡⚡ | Cross-entry detection, Smart multiline   | **Good (80-90%)** ⭐⭐⭐⭐ | **Offline / local production** |
 | Ollama     | 5-6s ⚡         | Multi-model pipeline, Context analysis   | **Unsatisfactory** | Experimental/Not Recommended |
 
 ## 📋 Supported Language Pairs
@@ -165,7 +173,7 @@ Result: Translates as unified sentence while preserving original timing
 
 ## 📖 Documentation
 
-- **[MarianMT User Guide](docs/MARIANMT_USER_GUIDE.md)** - Complete MarianMT setup and usage ⭐ **Recommended**
+- **[MarianMT User Guide](docs/MARIANMT_USER_GUIDE.md)** - Complete MarianMT setup and usage for local/offline workflows
 - **[Multi-Model Architecture Guide](docs/multi-model-guide.md)** - Advanced Ollama pipeline documentation
 - **[Implementation Tasks](docs/implementation-tasks.md)** - Development progress tracking
 - **[Traditional Translation Guide](docs/traditional-translation-guide.md)** - Basic translation modes
@@ -181,7 +189,8 @@ python main.py "test_sample.srt" --backend marian --verbose
 
 ## ⚠️ Important Notes
 
-- **MarianMT provides the best available translation quality** achieving 80-90% satisfactory results for subtitle needs, though it may occasionally struggle with specialized argot, formal/informal consistency, and rare unclear outputs.
+- **MarianMT provides the best local/offline translation quality** and typically achieves 80-90% satisfactory results for subtitle needs, though it may occasionally struggle with specialized argot, formal/informal consistency, and rare unclear outputs.
+- If you have internet access and want the strongest overall translation quality, Gemini is the better choice.
 - Cross-entry sentence detection is a unique MarianMT feature providing superior translation quality.
 - All processing is done locally - no data sent to external services.
 - **This tool prioritizes accessibility for hearing-impaired users** who depend on subtitles, not convenience features for casual users.

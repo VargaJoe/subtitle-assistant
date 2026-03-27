@@ -3,7 +3,7 @@
 # Translation settings
 translation:
   # Backend selection - choose translation engine
-  backend: "ollama"  # "ollama" or "marian"
+  backend: "marian"  # "ollama", "marian", or "gemini"
   
   source_language: "en"
   target_language: "hu"
@@ -40,6 +40,18 @@ ollama:
   host: "localhost"
   port: 11434
   timeout: 300  # Increased timeout for large models (in seconds)
+
+# Google Gemini settings
+# API key is loaded from environment variable GEMINI_API_KEY
+# See .env.example for how to set it up
+gemini:
+  # api_key: Load from GEMINI_API_KEY environment variable (do NOT hardcode here)
+  # Example: In .env file, set: GEMINI_API_KEY=your-actual-key-here
+  model: "gemini-3.1-pro-preview"  # "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-pro", etc.
+  temperature: 0.3  # Lower = more consistent translations
+  # max_output_tokens applies only to single-entry fallback calls.
+  # Batch chunk calls always use BATCH_MAX_OUTPUT_TOKENS (65536) with thinking disabled.
+  max_output_tokens: 8192  # tokens for single-entry use; override via GEMINI_MAX_OUTPUT_TOKENS in .env
 
 # MarianMT settings
 marian:

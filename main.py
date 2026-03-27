@@ -85,8 +85,7 @@ Examples:
     
     parser.add_argument(
         "--backend",
-        choices=["ollama", "marian"],
-        help="Translation backend: ollama (default) or marian (MarianMT)"
+        help="Translation backend to use (default: from config)"
     )
     
     parser.add_argument(
@@ -181,6 +180,12 @@ Examples:
         help="Run only translation step (Step 02)"
     )
 
+    parser.add_argument(
+        "--list-providers",
+        action="store_true",
+        help="List all available translation providers and exit"
+    )
+
     args = parser.parse_args()
     
     # Load configuration
@@ -224,7 +229,41 @@ Examples:
         config.reassess_overlaps = False
     if args.verbose:
         config.verbose = True
-    
+
+    # Handle --list-providers
+    if args.list_providers:
+        from subtitle_translator.core.plugin_system import TranslationProviderRegistry
+        registry = TranslationProviderRegistry()
+        
+        print("🔌 Available Translation Providers:")
+        print("=" * 40)
+        
+        providers = registry.list_providers()
+        if not providers:
+            print("❌ No providers found!")
+            return 1
+        
+        for provider_name in providers:
+            try:
+                provider = registry.get_provider(provider_name, vars(config))
+                capabilities = provider.get_capabilities()
+                status = "✅ Available" if provider.is_available() else "❌ Not Available"
+                
+                print(f"\n📦 {provider_name}")
+                print(f"   Status: {status}")
+                print(f"   Description: {capabilities.description}")
+                print(f"   Supports batch: {'Yes' if capabilities.batch_processing else 'No'}")
+                print(f"   Supports whole file: {'Yes' if capabilities.context_window_support else 'No'}")
+                if capabilities.supported_languages:
+                    print(f"   Languages: {', '.join(capabilities.supported_languages)}")
+                
+            except Exception as e:
+                print(f"\n📦 {provider_name}")
+                print(f"   Status: ❌ Error - {e}")
+        
+        print(f"\n📊 Total providers: {len(providers)}")
+        return 0
+
     # Handle multi-model step selection
     if args.only_translation:
         # Run only translation step

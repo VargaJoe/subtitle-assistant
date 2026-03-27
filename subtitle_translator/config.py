@@ -2,6 +2,8 @@
 """
 
 import yaml
+import os
+from dotenv import load_dotenv
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -52,6 +54,15 @@ class MarianSettings:
     # Cross-entry sentence detection
     cross_entry_detection: bool = True  # Detect sentences spanning multiple subtitle entries
     # Only active when multiline_strategy is "smart"
+
+
+@dataclass
+class GeminiSettings:
+    """Google Gemini API settings."""
+    api_key: str = ""  # Will be loaded from environment variable GEMINI_API_KEY
+    model: str = "gemini-2.0-flash"
+    temperature: float = 0.3
+    max_output_tokens: int = 512
 
 
 @dataclass
@@ -167,7 +178,7 @@ class Config:
     """Configuration settings for the subtitle translator."""
     
     # Backend selection
-    translation_backend: str = "ollama"  # "ollama" or "marian"
+    translation_backend: str = "marian"  # "ollama" or "marian"
     
     # Basic translation settings
     source_lang: str = "en"
@@ -189,6 +200,9 @@ class Config:
     # MarianMT settings
     marian: MarianSettings = field(default_factory=MarianSettings)
     marian_training: MarianTrainingSettings = field(default_factory=MarianTrainingSettings)
+    
+    # Gemini API settings
+    gemini: GeminiSettings = field(default_factory=GeminiSettings)
     
     # Tone and style settings
     tone: ToneSettings = field(default_factory=ToneSettings)
@@ -215,6 +229,32 @@ class Config:
     
     def __post_init__(self):
         """Validate configuration after initialization."""
+        # Load environment variables from .env file
+        load_dotenv()
+        
+        # Load Gemini API key from environment if not provided
+        if not self.gemini.api_key:
+            self.gemini.api_key = os.getenv('GEMINI_API_KEY', '')
+        
+        # Load other Gemini settings from environment (optional overrides)
+        env_model = os.getenv('GEMINI_MODEL')
+        if env_model:
+            self.gemini.model = env_model
+            
+        env_temp = os.getenv('GEMINI_TEMPERATURE')
+        if env_temp:
+            try:
+                self.gemini.temperature = float(env_temp)
+            except ValueError:
+                pass
+                
+        env_tokens = os.getenv('GEMINI_MAX_OUTPUT_TOKENS')
+        if env_tokens:
+            try:
+                self.gemini.max_output_tokens = int(env_tokens)
+            except ValueError:
+                pass
+        
         # Ensure nested objects are properly initialized
         if not isinstance(self.tone, ToneSettings):
             self.tone = ToneSettings()
@@ -239,8 +279,18 @@ class Config:
             raise ValueError("Style must be 'natural', 'literal', or 'creative'")
         if self.translation_mode not in ["line-by-line", "batch", "whole-file", "multi-model"]:
             raise ValueError("Translation mode must be 'line-by-line', 'batch', 'whole-file', or 'multi-model'")
-        if self.translation_backend not in ["ollama", "marian"]:
-            raise ValueError("Translation backend must be 'ollama' or 'marian'")
+        
+        # Validate translation backend is available in plugin system
+        try:
+            from .core import registry
+            available_backends = registry.list_providers()
+            if self.translation_backend not in available_backends:
+                raise ValueError(f"Translation backend '{self.translation_backend}' is not available. Available backends: {', '.join(available_backends)}")
+        except ImportError:
+            # Fallback to hardcoded validation if plugin system not available
+            if self.translation_backend not in ["ollama", "marian"]:
+                raise ValueError("Translation backend must be 'ollama' or 'marian'")
+        
         if self.batch_size < 1:
             raise ValueError("Batch size must be at least 1")
         if self.overlap_size < 0:
@@ -268,6 +318,9 @@ class Config:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'Config':
         """Create Config from dictionary."""
+        # Load environment variables first
+        load_dotenv()
+        
         # Extract nested settings
         translation = data.get('translation', {})
         ollama = data.get('ollama', {})
@@ -276,6 +329,7 @@ class Config:
         tone_data = translation.get('tone', {})
         hungarian_data = translation.get('hungarian', {})
         multi_model_data = data.get('multi_model', {})  # Multi-model is at root level
+        gemini_data = data.get('gemini', {})
         
         # Create tone and Hungarian settings
         tone = ToneSettings(
@@ -344,6 +398,14 @@ class Config:
             )
         )
         
+        # Create Gemini settings - load API key from environment if available
+        gemini = GeminiSettings(
+            api_key=os.getenv('GEMINI_API_KEY', gemini_data.get('api_key', '')),
+            model=os.getenv('GEMINI_MODEL', gemini_data.get('model', 'gemini-2.0-flash')),
+            temperature=float(os.getenv('GEMINI_TEMPERATURE', gemini_data.get('temperature', 0.3))),
+            max_output_tokens=int(os.getenv('GEMINI_MAX_OUTPUT_TOKENS', gemini_data.get('max_output_tokens', 512)))
+        )
+        
         return cls(
             translation_backend=data.get('translation', {}).get('backend', 'ollama'),
             source_lang=translation.get('source_language', 'en'),
@@ -359,6 +421,7 @@ class Config:
             tone=tone,
             hungarian=hungarian,
             marian=marian,
+            gemini=gemini,
             multi_model=multi_model,
             translation_mode=processing.get('translation_mode', 'line-by-line'),
             batch_size=processing.get('batch_size', 10),

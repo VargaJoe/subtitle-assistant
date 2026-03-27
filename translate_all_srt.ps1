@@ -20,15 +20,33 @@
 .PARAMETER TargetLanguage
     Target language code (e.g., 'hu' for Hungarian). Defaults to 'hu'.
 
+.PARAMETER Backend
+    Translation backend to use ('marian', 'ollama', or 'gemini'). Defaults to 'marian'.
+
 .PARAMETER Verbose
     Enable verbose output for detailed translation progress
 
 .PARAMETER DryRun
     Show what files would be processed without actually translating them
 
+.PARAMETER ListProviders
+    List all available translation providers and exit
+
 .EXAMPLE
     .\translate_all_srt.ps1
-    Translates all SRT files in "subtitles" folder to "output" folder
+    Translates all SRT files in "subtitles" folder to "output" folder using MarianMT
+
+.EXAMPLE
+    .\translate_all_srt.ps1 -Backend ollama
+    Translates using Ollama backend instead of MarianMT
+
+.EXAMPLE
+    .\translate_all_srt.ps1 -Backend gemini
+    Translates using Google Gemini API (requires GEMINI_API_KEY in .env)
+
+.EXAMPLE
+    .\translate_all_srt.ps1 -ListProviders
+    Shows all available translation providers
 
 .EXAMPLE
     .\translate_all_srt.ps1 -Verbose
@@ -44,12 +62,14 @@ param(
     [string]$OutputPath = "output", 
     [string]$SourceLanguage = "en",  # Default source language
     [string]$TargetLanguage = "hu",  # Default target language
-    [string]$Model = $null,           # Optional MarianMT model override
+    [string]$Backend = "marian",     # Default backend
+    [string]$Model = $null,           # Optional model override
     [switch]$Verbose,
     [switch]$DryRun,
     [switch]$NoCrossEntryDetection,   # New: disable cross-entry detection
     [switch]$NoSmartMultiline,        # New: disable smart multiline strategy
-    [switch]$ReformatOnly             # New: only reformat SRT files, no translation
+    [switch]$ReformatOnly,            # New: only reformat SRT files, no translation
+    [switch]$ListProviders            # New: list available translation providers
 )
 
 
@@ -71,6 +91,26 @@ Write-Host ""
 
 if ($ReformatOnly) {
     Write-Host "${Yellow}⚡ Reformat-only mode: Will only split subtitle rows, no translation.${Reset}" -ForegroundColor Yellow
+}
+
+# Handle ListProviders parameter
+if ($ListProviders) {
+    Write-Host "${Blue}🔌 Available Translation Providers:${Reset}" -ForegroundColor Blue
+    Write-Host "=================================" -ForegroundColor Blue
+    
+    try {
+        # Run Python to list providers
+        $listOutput = & python main.py --list-providers 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host $listOutput
+        } else {
+            Write-Host "${Red}❌ Error listing providers: $listOutput${Reset}" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "${Red}❌ Error: Could not run Python script to list providers.${Reset}" -ForegroundColor Red
+        Write-Host "Make sure Python is installed and main.py is available." -ForegroundColor Red
+    }
+    exit 0
 }
 
 # Check if subtitles folder exists
@@ -168,10 +208,19 @@ if ($ReformatOnly) {
     Write-Host "  - No translation will be performed" -ForegroundColor Cyan
     Write-Host ""
 } else {
-    Write-Host "${Green}🚀 Starting batch translation with MarianMT...${Reset}" -ForegroundColor Green
+    Write-Host "${Green}🚀 Starting batch translation with $Backend backend...${Reset}" -ForegroundColor Green
     Write-Host "Configuration:" -ForegroundColor Cyan
-    Write-Host "  - Backend: MarianMT (Helsinki-NLP/opus-mt-en-hu)" -ForegroundColor Cyan
-    Write-Host "  - Strategy: Smart multiline with cross-entry detection" -ForegroundColor Cyan
+    if ($Backend -eq "marian") {
+        Write-Host "  - Backend: MarianMT (Helsinki-NLP/opus-mt-en-hu)" -ForegroundColor Cyan
+        Write-Host "  - Strategy: Smart multiline with cross-entry detection" -ForegroundColor Cyan
+    } elseif ($Backend -eq "gemini") {
+        Write-Host "  - Backend: Google Gemini API" -ForegroundColor Cyan
+        Write-Host "  - Strategy: Neural translation with context awareness" -ForegroundColor Cyan
+        Write-Host "  - Note: Requires GEMINI_API_KEY in .env (free tier: 20 req/day)" -ForegroundColor Yellow
+    } else {
+        Write-Host "  - Backend: Ollama (Local AI models)" -ForegroundColor Cyan
+        Write-Host "  - Strategy: Multi-model architecture with context awareness" -ForegroundColor Cyan
+    }
     Write-Host "  - Mode: Line-by-line (resumable)" -ForegroundColor Cyan
     Write-Host ""
 }
@@ -199,7 +248,7 @@ foreach ($file in $srtFiles) {
         $arguments = @(
             "main.py",
             "`"$($file.FullName)`"",
-            "--backend", "marian",
+            "--backend", "$Backend",
             "--output-dir", "`"$OutputPath`"",
             "--source", "$SourceLanguage",
             "--target", "$TargetLanguage"
