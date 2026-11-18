@@ -188,33 +188,63 @@ class APIRateLimiter:
             max_wait: Maximum seconds to wait (default: 1 hour)
             
         Returns:
-            True if waited, False if would exceed max_wait
+            True only after waiting and rechecking that all limits allow the
+            request. False if no wait is needed or the total wait would exceed
+            max_wait (including when the request cannot fit the token quota).
         """
-        is_allowed, error_msg = self.check_rate_limit(tokens)
-        if is_allowed:
-            return False
-        
-        # Calculate wait time based on oldest record in current window
-        with self.lock:
-            req_1m, _ = self._get_recent_usage(60)
-            if req_1m >= self.config.requests_per_minute:
-                # Wait until oldest request in last minute expires
-                cutoff = time.time() - 60
-                oldest = min((r.timestamp for r in self.usage_history 
-                             if r.timestamp > cutoff), default=time.time())
-                wait_time = (oldest + 60) - time.time() + 1
-            else:
-                wait_time = 1  # Short wait
-        
-        if wait_time > max_wait:
-            logger.error(f"Would need to wait {wait_time}s, exceeds max_wait {max_wait}s")
-            return False
-        
-        if wait_time > 0:
-            logger.warning(f"Rate limit approaching. Waiting {wait_time:.1f}s...")
-            time.sleep(wait_time)
-        
-        return True
+        deadline = time.monotonic() + max_wait
+        waited = False
+        while True:
+            is_allowed, _ = self.check_rate_limit(tokens)
+            if is_allowed:
+                return waited
+
+            with self.lock:
+                now = time.time()
+                waits = []
+                windows = (
+                    (60, self.config.requests_per_minute, self.config.tokens_per_minute),
+                    (3600, self.config.requests_per_hour, None),
+                    (86400, self.config.requests_per_day, None),
+                )
+                for seconds, request_limit, token_limit in windows:
+                    recent = sorted(
+                        (record for record in self.usage_history if record.timestamp > now - seconds),
+                        key=lambda record: record.timestamp,
+                    )
+                    requests = sum(record.requests for record in recent)
+                    used_tokens = sum(record.tokens for record in recent)
+
+                    def fits():
+                        return requests < request_limit and (
+                            token_limit is None or used_tokens + tokens <= token_limit
+                        )
+
+                    if fits():
+                        continue
+                    # Enough usage must expire, not merely the oldest record.
+                    # Check every window so a short minute wait cannot conceal
+                    # a daily quota that remains exhausted for many hours.
+                    for record in recent:
+                        requests -= record.requests
+                        used_tokens -= record.tokens
+                        if fits():
+                            waits.append(record.timestamp + seconds - now + 1)
+                            break
+                    else:
+                        logger.error("Request cannot fit the configured rate limits")
+                        return False
+                wait_time = max(waits, default=0)
+
+            if wait_time > deadline - time.monotonic():
+                logger.error(f"Would need to wait {wait_time}s, exceeds remaining max_wait budget")
+                return False
+            if wait_time > 0:
+                logger.warning(f"Rate limit approaching. Waiting {wait_time:.1f}s...")
+                time.sleep(wait_time)
+                waited = True
+            # Usage may change while asleep. Recheck before permitting a call,
+            # keeping any additional wait inside the original monotonic budget.
     
     def get_stats(self) -> Dict[str, Any]:
         """Get current usage statistics."""

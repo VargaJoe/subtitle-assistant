@@ -89,6 +89,16 @@ Write-Host "${Blue}🎬 Subtitle Assistant - Batch Translation Script${Reset}" -
 Write-Host "===============================================" -ForegroundColor Blue
 Write-Host ""
 
+# Determine which Python executable to use: prefer an active virtualenv or local .venv
+$pythonExe = "python"
+if ($env:VIRTUAL_ENV) {
+    $candidate = Join-Path $env:VIRTUAL_ENV "Scripts\python.exe"
+    if (Test-Path $candidate) { $pythonExe = $candidate }
+} else {
+    $cwdVenv = Join-Path (Get-Location) ".venv\Scripts\python.exe"
+    if (Test-Path $cwdVenv) { $pythonExe = $cwdVenv }
+}
+
 if ($ReformatOnly) {
     Write-Host "${Yellow}⚡ Reformat-only mode: Will only split subtitle rows, no translation.${Reset}" -ForegroundColor Yellow
 }
@@ -99,8 +109,8 @@ if ($ListProviders) {
     Write-Host "=================================" -ForegroundColor Blue
     
     try {
-        # Run Python to list providers
-        $listOutput = & python main.py --list-providers 2>&1
+        # Run Python to list providers using selected python executable
+        $listOutput = & $pythonExe main.py --list-providers 2>&1
         if ($LASTEXITCODE -eq 0) {
             Write-Host $listOutput
         } else {
@@ -235,21 +245,21 @@ foreach ($file in $srtFiles) {
     
     Write-Host "${Blue}[$fileNumber/$($srtFiles.Count)] Processing: $($file.Name)${Reset}" -ForegroundColor Blue
 
-    # Build the command arguments
+    # Native invocation quotes each argument; embedded quotes become path characters.
     if ($ReformatOnly) {
         # For reformatting, overwrite the original file
         $arguments = @(
             "reformat_srt.py",
-            "`"$($file.FullName)`""
+            $file.FullName
         )
     } else {
         # Use --output-dir to specify output directory
         # Python's config.get_output_filename() will handle filename cleanup
         $arguments = @(
             "main.py",
-            "`"$($file.FullName)`"",
+            $file.FullName,
             "--backend", "$Backend",
-            "--output-dir", "`"$OutputPath`"",
+            "--output-dir", $OutputPath,
             "--source", "$SourceLanguage",
             "--target", "$TargetLanguage"
         )
@@ -279,30 +289,52 @@ foreach ($file in $srtFiles) {
     }
 
     # Execute translation or reformat
-    try {
-        $startFileTime = Get-Date
+        try {
+            $startFileTime = Get-Date
 
-        if ($Verbose) {
-            Write-Host "  Command: python $($arguments -join ' ')" -ForegroundColor DarkGray
+            if ($Verbose) {
+                Write-Host "  Command: $pythonExe $($arguments -join ' ')" -ForegroundColor DarkGray
+            }
+
+            # Run python directly, capture stdout+stderr
+            $procOutput = & $pythonExe @arguments 2>&1
+            $exitCode = $LASTEXITCODE
+
+            $endFileTime = Get-Date  # Ensure $endTime is set correctly
+            $fileElapsed = ($endFileTime - $startFileTime).TotalSeconds
+
+            $outputString = $procOutput -join "`n"
+
+            if ($exitCode -eq 0) {
+                Write-Host "  ${Green}✅ Success${Reset} (${fileElapsed:F1}s)" -ForegroundColor Green
+                $successCount++
+            } else {
+                # Detect rate-limit / quota exhaustion messages to stop the whole batch
+                if ($outputString -match "(?i)rate limit|quota exceeded|RESOURCE_EXHAUSTED|RetryInfo|retryDelay") {
+                    Write-Host "  ${Red}❌ Rate limit reached — stopping batch.${Reset}" -ForegroundColor Red
+                    Write-Host "  Output: $outputString" -ForegroundColor Red
+                    $errorCount++
+
+                    # Save debug output
+                    $debugDir = Join-Path "output" "debug"
+                    New-Item -ItemType Directory -Path $debugDir -Force | Out-Null
+                    $debugPath = Join-Path $debugDir ("rate_limit_{0}.log" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
+                    $outputString | Out-File -FilePath $debugPath -Encoding utf8
+
+                    Write-Host "  Saved debug output to: $debugPath" -ForegroundColor Yellow
+
+                    exit 103
+                } else {
+                    Write-Host "  ${Red}❌ Failed${Reset} (Exit code: $exitCode)" -ForegroundColor Red
+                    Write-Host "  Output: $outputString" -ForegroundColor DarkGray
+                    $errorCount++
+                }
+            }
         }
-
-        $process = Start-Process -FilePath "python" -ArgumentList $arguments -Wait -PassThru -NoNewWindow
-
-        $endFileTime = Get-Date  # Ensure $endTime is set correctly
-        $fileElapsed = ($endFileTime - $startFileTime).TotalSeconds
-
-        if ($process.ExitCode -eq 0) {
-            Write-Host "  ${Green}✅ Success${Reset} (${fileElapsed:F1}s)" -ForegroundColor Green
-            $successCount++
-        } else {
-            Write-Host "  ${Red}❌ Failed${Reset} (Exit code: $($process.ExitCode))" -ForegroundColor Red
+        catch {
+            Write-Host "  ${Red}❌ Error: $($_.Exception.Message)${Reset}" -ForegroundColor Red
             $errorCount++
         }
-    }
-    catch {
-        Write-Host "  ${Red}❌ Error: $($_.Exception.Message)${Reset}" -ForegroundColor Red
-        $errorCount++
-    }
 
     Write-Host ""
 }
