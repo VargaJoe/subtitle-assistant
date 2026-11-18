@@ -129,6 +129,12 @@ dmypy.json
 .pyre/
 
 # Project specific
+.local/
+api-connection.json
+gui-launch.json
+gui-api.stdout.log
+gui-api.stderr.log
+api-server.lock
 # Ignore test subtitle files for now (they are large)
 # subtitles/
 

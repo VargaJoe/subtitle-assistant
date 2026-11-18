@@ -6,23 +6,27 @@ __version__ = "0.1.0"
 __author__ = "VargaJoe"
 __description__ = "AI-powered subtitle translation tool for hearing-impaired users"
 
-# Load all plugins when the package is imported
-try:
-    from .core.plugin_loader import load_all_plugins
-    load_all_plugins()
-except ImportError:
-    # Plugins not available yet during early development
-    pass
+from importlib import import_module
 
-# Import main classes for easy access
-from .translator import SubtitleTranslator
-from .config import Config
-from .srt_parser import SRTParser, SubtitleEntry
-from .ollama_client import OllamaClient
+# Keep the historical public imports without loading model SDKs for parser/tool use.
+_EXPORTS = {
+    "SubtitleTranslator": ".translator",
+    "Config": ".config",
+    "SRTParser": ".srt_parser",
+    "SubtitleEntry": ".srt_parser",
+    "OllamaClient": ".ollama_client",
+    "MarianClient": ".marian_client",
+}
+__all__ = list(_EXPORTS)
 
-# Conditionally import MarianClient if dependencies are available
-try:
-    from .marian_client import MarianClient
-    __all__ = ['SubtitleTranslator', 'Config', 'SRTParser', 'SubtitleEntry', 'OllamaClient', 'MarianClient']
-except ImportError:
-    __all__ = ['SubtitleTranslator', 'Config', 'SRTParser', 'SubtitleEntry', 'OllamaClient']
+
+def __getattr__(name):
+    if name not in _EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(_EXPORTS[name], __name__), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_EXPORTS))

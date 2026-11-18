@@ -1,0 +1,270 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "info": {
+    "title": "Subtitle Assistant local agent API",
+    "version": "1.1",
+    "description": "Model-free local transport over the shared project service (storage schema 2). Start with the CLI api serve command and read the actual endpoint/token from the workspace api-connection.json. The token is a local workspace credential; agent/actor labels are attribution data. No model SDK, OAuth or remote server is involved."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:{port}",
+      "description": "Loopback example only. Replace port with the bound port from api-connection.json; the server normally chooses an ephemeral port. Other loopback IPs, including IPv6, can be configured.",
+      "variables": {
+        "port": {
+          "default": "8765",
+          "description": "Example placeholder; use the discovered endpoint, not this example port."
+        }
+      }
+    }
+  ],
+  "security": [
+    {
+      "WorkspaceBearer": []
+    }
+  ],
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "health",
+        "description": "Unauthenticated application/instance identity probe. Returns no workspace paths or credential.",
+        "responses": {
+          "200": {
+            "description": "Structured success envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "tool-v1.schema.json#/$defs/Success"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "tool-v1.schema.json#/$defs/Health"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/capabilities": {
+      "get": {
+        "operationId": "capabilities",
+        "description": "Authenticated operation discovery and API/storage version information.",
+        "responses": {
+          "200": {
+            "description": "Structured success envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "tool-v1.schema.json#/$defs/Success"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "tool-v1.schema.json#/$defs/Capabilities"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/schema": {
+      "get": {
+        "operationId": "transportSchema",
+        "description": "Authenticated compact transport descriptor: operations, request field kinds and maximum request bytes. It does not serve the JSON Schema or OpenAPI documents.",
+        "responses": {
+          "200": {
+            "description": "Structured success envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "tool-v1.schema.json#/$defs/Success"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "tool-v1.schema.json#/$defs/TransportSchema"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/operations": {
+      "post": {
+        "operationId": "invokeOperation",
+        "description": "Invoke one of the closed OperationRequest branches. Requests need application/json and exactly one valid Content-Length header; transfer encoding, duplicate JSON fields, non-finite numbers and bodies over one MiB are refused. File paths resolve inside the server's allowed root. Mutation results carry a UUID receipt; save the exact payload before submission and inspect request.receipt if publication is uncertain.",
+        "x-max-request-bytes": 1048576,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "tool-v1.schema.json#/$defs/OperationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operation-specific data in the shared envelope. See Batch/BatchPrepareResult/BatchSubmitResult, Entry/EntryChangeResult, JobStatus and Capabilities definitions; other operations expose their service result object.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "tool-v1.schema.json#/$defs/Success"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/shutdown": {
+      "post": {
+        "operationId": "shutdown",
+        "description": "Authenticated shutdown of this workspace API instance. Accepts exactly an empty JSON object and returns before asynchronous server shutdown completes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "tool-v1.schema.json#/$defs/EmptyArguments"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Shutdown requested.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "tool-v1.schema.json#/$defs/Success"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "tool-v1.schema.json#/$defs/Stopping"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "WorkspaceBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Per-instance token from the protected local workspace api-connection.json. Send only to its verified loopback endpoint."
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Structured error envelope. Status distinguishes malformed input (400), authentication (401), missing resources (404), stale/protected/conflicting state (409), oversized body (413), mapping/review failures (422), internal/I/O failure (500) and workspace busy (503).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "tool-v1.schema.json#/$defs/Failure"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Envelope": {
+        "$ref": "tool-v1.schema.json"
+      },
+      "OperationRequest": {
+        "$ref": "tool-v1.schema.json#/$defs/OperationRequest"
+      },
+      "Batch": {
+        "$ref": "tool-v1.schema.json#/$defs/Batch"
+      },
+      "JobStatus": {
+        "$ref": "tool-v1.schema.json#/$defs/JobStatus"
+      }
+    }
+  }
+}

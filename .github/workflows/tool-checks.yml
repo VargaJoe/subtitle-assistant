@@ -1,0 +1,38 @@
+name: Subtitle tool checks
+
+on:
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  model-free:
+    name: Model-free tool (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Shared core, local HTTP and launcher regressions
+        run: python -S -m unittest discover -s tests/tool -q
+      - name: Editor state regressions
+        run: node --test tests/web/test_editor_state.mjs
+      - name: Install package without model dependencies
+        run: python -m pip install --no-deps .
+      - name: Check installed CLI outside source imports
+        run: python -I -m subtitle_translator.tool capabilities --json
+      - name: Install optional contract validators
+        run: python -m pip install '.[contracts]'
+      - name: Validate published schemas against runtime examples
+        run: python -m unittest discover -s tests/contracts -q

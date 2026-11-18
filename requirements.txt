@@ -1,4 +1,7 @@
 # Core dependencies for subtitle translation
+# Historical full environment. Model-free M1 CLI needs only Python 3.10+.
+# Optional dependency groups are defined in pyproject.toml.
+PyYAML>=6.0  # Legacy YAML configuration
 requests>=2.31.0
 ollama>=0.3.0
 python-dotenv>=1.0.0  # For loading environment variables from .env files
