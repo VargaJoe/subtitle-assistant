@@ -8,188 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Iterator
 from datetime import timedelta
-
-def split_subtitle_text(text: str, max_length: int = 42, method: str = "even", target_line_count: Optional[int] = None) -> str:
-    """
-    Split subtitle text into rows according to max_length and method.
-    
-    Args:
-        text: Text to split
-        max_length: Maximum length per line (default 42 chars)
-        method: Splitting method - "even", "word", or "char"
-        target_line_count: Optional target number of lines to preserve from original.
-        If set, will try to split into this many lines instead of default behavior.
-    
-    Methods:
-        - even: Split as evenly as possible, may break words if needed.
-        - word: Split at word boundaries, never break words.
-        - char: Split at exact character count, may break words.
-    """
-    if not text or max_length < 1:
-        return text
-
-    html_pattern = r'<[^>]+>'
-    html_tags = re.findall(html_pattern, text)
-    preserve_html = bool(html_tags)
-    opening_tags = [tag for tag in html_tags if not tag.startswith('</')]
-    closing_tags = [tag for tag in html_tags if tag.startswith('</')]
-
-    if preserve_html:
-        text = re.sub(html_pattern, '', text)
-
-    lines = []
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
-    paragraphs = text.split('\n')
-    
-    for paragraph in paragraphs:
-        paragraph = paragraph.strip()
-        if not paragraph:
-            continue
-        
-        if method == "char":
-            # Split at exact character count
-            for i in range(0, len(paragraph), max_length):
-                lines.append(paragraph[i:i+max_length])
-        elif method == "word":
-            # Split at word boundaries
-            words = paragraph.split()
-            current_line = ""
-            for word in words:
-                if len(current_line) + len(word) + (1 if current_line else 0) > max_length:
-                    if current_line:
-                        lines.append(current_line)
-                    current_line = word
-                else:
-                    current_line = (current_line + " " + word) if current_line else word
-            if current_line:
-                lines.append(current_line)
-        else:  # even
-            # Split as evenly as possible, trying different split points
-            if len(paragraph) <= max_length:
-                lines.append(paragraph)
-            else:
-                words = paragraph.split()
-                
-                # If target_line_count is specified, try to split into that many lines
-                if target_line_count and target_line_count > 1 and len(words) > 1:
-                    # Try to split into target_line_count lines
-                    paragraph_lines = _split_into_n_lines(paragraph, words, max_length, target_line_count)
-                    lines.extend(paragraph_lines)
-                else:
-                    # Default: try 2-line split
-                    best_split = None
-                    min_difference = float('inf')
-                    
-                    # Try splitting at different word positions
-                    for i in range(1, len(words)):
-                        first_part = " ".join(words[:i])
-                        second_part = " ".join(words[i:])
-                        
-                        # Both parts must fit within max_length
-                        if len(first_part) <= max_length and len(second_part) <= max_length:
-                            # Calculate how even the split is
-                            difference = abs(len(first_part) - len(second_part))
-                            
-                            # Prefer this split if it's more even
-                            if difference < min_difference:
-                                min_difference = difference
-                                best_split = (first_part, second_part)
-                    
-                    if best_split:
-                        # Found a good 2-line split
-                        lines.append(best_split[0])
-                        lines.append(best_split[1])
-                    else:
-                        # No good 2-line split possible, fall back to word-boundary splitting
-                        current_line = ""
-                        for word in words:
-                            test_line = (current_line + " " + word) if current_line else word
-                            
-                            if len(test_line) > max_length:
-                                if current_line:
-                                    lines.append(current_line)
-                                    current_line = word
-                                else:
-                                    lines.append(word)
-                                    current_line = ""
-                            else:
-                                current_line = test_line
-                        
-                        if current_line:
-                            lines.append(current_line)
-    
-    if preserve_html and (opening_tags or closing_tags):
-        prefix = ''.join(opening_tags)
-        suffix = ''.join(closing_tags)
-        lines = [f"{prefix}{line}{suffix}" if line else line for line in lines]
-
-    return '\n'.join(lines)
-
-
-def _split_into_n_lines(text: str, words: list, max_length: int, target_lines: int) -> list:
-    """
-    Helper function to split text into approximately target_lines lines.
-    
-    Args:
-        text: Original text
-        words: Pre-split list of words
-        max_length: Max characters per line
-        target_lines: Target number of lines
-    
-    Returns:
-        List of lines split to approximately target number
-    """
-    if not words or target_lines < 1:
-        return [text] if text else []
-    
-    # Calculate approximate words per line
-    words_per_line = max(1, len(words) // target_lines)
-    result_lines = []
-    current_line = ""
-    word_count = 0
-    
-    for word in words:
-        test_line = (current_line + " " + word) if current_line else word
-        
-        # Check if we should break to next line
-        should_break = False
-        
-        # Break if we exceed max_length
-        if len(test_line) > max_length:
-            should_break = True
-        # Break if we've reached approximately words_per_line and line isn't empty
-        elif word_count >= words_per_line and current_line:
-            should_break = True
-        
-        if should_break and current_line:
-            result_lines.append(current_line)
-            current_line = word
-            word_count = 1
-        else:
-            current_line = test_line
-            word_count += 1
-    
-    if current_line:
-        result_lines.append(current_line)
-    
-    # If we ended up with more lines than target, try to merge some
-    while len(result_lines) > target_lines and len(result_lines) > 1:
-        # Find the two shortest consecutive lines and try to merge them
-        min_idx = 0
-        min_combined_len = len(result_lines[0]) + len(result_lines[1])
-        
-        for i in range(len(result_lines) - 1):
-            combined_len = len(result_lines[i]) + len(result_lines[i+1])
-            if combined_len < min_combined_len and combined_len <= max_length * 1.5:  # Allow slight overage
-                min_combined_len = combined_len
-                min_idx = i
-        
-        # Merge the two shortest lines
-        merged = result_lines[min_idx] + " " + result_lines[min_idx + 1]
-        result_lines = result_lines[:min_idx] + [merged] + result_lines[min_idx + 2:]
-    
-    return result_lines
-
+from .srt_format import format_timestamp
+from .formatting import format_subtitle_texts, split_subtitle_text
 
 
 @dataclass
@@ -231,13 +51,7 @@ class SubtitleEntry:
     
     def format_time(self, time: timedelta) -> str:
         """Format timedelta to SRT timestamp format."""
-        total_seconds = int(time.total_seconds())
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        seconds = total_seconds % 60
-        milliseconds = int(time.microseconds / 1000)
-        
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
+        return format_timestamp(time // timedelta(milliseconds=1))
     
     def to_srt_format(self, use_original: bool = False, max_row_length: int = 42, row_split_method: str = "even") -> str:
         """Convert entry back to SRT format, applying row splitting."""
@@ -249,9 +63,13 @@ class SubtitleEntry:
             row_split_method,
             target_line_count=self.original_line_count
         )
+        return self._srt_block(text_to_use)
+
+    def _srt_block(self, text: str) -> str:
+        """Serialize already formatted text with this entry's original anchors."""
         start_time_str = self.format_time(self.start_time)
         end_time_str = self.format_time(self.end_time)
-        return f"{self.index}\n{start_time_str} --> {end_time_str}\n{text_to_use}\n"
+        return f"{self.index}\n{start_time_str} --> {end_time_str}\n{text}\n"
 
 
 class SRTParser:
@@ -395,13 +213,18 @@ class SRTParser:
             entries: List of SubtitleEntry objects
             file_path: Output file path
         """
-        # Ensure parent directory exists
+        # Format the document as a whole so original scopes can span cues.
+        # Hints are per cue; wrapping never reallocates text among timestamps.
+        formatted_texts = format_subtitle_texts(
+            (entry.text for entry in entries), max_row_length, row_split_method,
+            target_line_counts=(entry.original_line_count for entry in entries),
+        )
         file_path.parent.mkdir(parents=True, exist_ok=True)
         
         try:
             with open(file_path, 'w', encoding='utf-8') as f:
-                for i, entry in enumerate(entries):
-                    f.write(entry.to_srt_format(max_row_length=max_row_length, row_split_method=row_split_method))
+                for i, (entry, text) in enumerate(zip(entries, formatted_texts)):
+                    f.write(entry._srt_block(text))
                     # Add separator between entries (except for last one)
                     if i < len(entries) - 1:
                         f.write('\n')

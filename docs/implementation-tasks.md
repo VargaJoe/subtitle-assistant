@@ -1,10 +1,33 @@
 # Implementation Tasks
 
+## Current Direction — 2026-11-16
+
+The current development direction prioritizes an agent-operated subtitle tool, with a shared subtitle/context core, a local API, JSON CLI and skill. An early GUI lets Joe follow agent activity and edit source/target text and timing side by side. Codex/SuperGrok subscription OAuth is deferred until after this supervised workflow. MCP remains optional; it is not a prerequisite.
+
+Detailed scope, dependencies and acceptance criteria: [Tool-first development plan](tool-first-development-plan.md). The milestone order below supersedes the older planned-story ordering; existing story documents remain requirement/history references. As of 2026-11-17, M0/M1 and M2 technical acceptance are verified; see [v1.1 contract](tool-v1-contract.md) and [translated FBI pilot](m2-agent-pilot.md).
+
+- [x] M0 — Contracts, pilot material and migration boundaries
+- [x] M1 — Shared subtitle core and persistent projects, shared display formatter
+- [x] M2 — Agent tool MVP: local API, JSON CLI and skill; fresh internal-agent pilot and clean-installed HTTP verification
+- [ ] M7a — Early GUI: source/target editor, timing corrections and live agent supervision
+- [ ] M3 — Story, scene and character context; consistency
+- [ ] M7b — Context and review GUI, including manual-edit protection
+- [ ] M4 — Full-episode agent pilot with GUI supervision and interruption recovery
+- [ ] After M4/GUI acceptance — choose the next priority among OAuth, frame context and STT
+- [ ] M5 — Separate Codex and SuperGrok OAuth feasibility probes (deferred)
+- [ ] M6 — Standalone OAuth translation providers and connection UI (after the relevant M5 probe)
+- [ ] M8 — Frame-assisted context (later; priority relative to OAuth remains open)
+- [ ] M9 — Video/audio to editable source SRT (later; priority relative to OAuth remains open)
+
 ---
 
 ## In-Progress Stories
 
-No stories in progress
+M1/M2 and the M7a GUI preview are implemented on `feature/tool-core-m1`. The complete FBI first draft has 848 target cues; the owner has marked the three flagged source locations reviewed, so its current final export validation passes. Human/video and full supervised-edit acceptance remain open. Incomplete/review-pending translations can also be downloaded after confirmation as a marked draft with a review list, without changing their saved review state. See [GUI preview](gui-preview.md) and [PR validation](pr-validation.md). Persistent story context and OAuth remain unbuilt; the owner retains merge authority.
+
+## Later UX refinements — low priority
+
+- [ ] Revisit the separate editor opening: Joe finds this inconvenient. Explore editing alongside/in the subtitle list while keeping source/target context, keyboard navigation and unsaved changes visible. Record this for a later UX pass; it does not take priority over the working translation tool (owner feedback, 2026-11-18).
 
 ## Planned Stories
 

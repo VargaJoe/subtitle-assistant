@@ -12,8 +12,20 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Dict
 import logging
+from threading import RLock
 
 logger = logging.getLogger(__name__)
+_builtin_lock = RLock()
+_builtin_loaded = False
+
+
+def ensure_builtin_providers():
+    """Discover legacy providers on demand, rather than on package import."""
+    global _builtin_loaded
+    with _builtin_lock:
+        if not _builtin_loaded:
+            discover_plugins("subtitle_translator.providers")
+            _builtin_loaded = True
 
 
 def discover_plugins(package_name: str = "subtitle_translator.providers") -> List[str]:

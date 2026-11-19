@@ -1,5 +1,31 @@
 # Subtitle Assistant
 
+## Agent-operated subtitle tool (M2)
+
+Persistent projects, grouped external-agent translation, protected manual edits
+and timing-safe export work with Python 3.10+, without an app-side model login:
+
+```powershell
+python -S -m subtitle_translator.tool capabilities --json
+python -S -m subtitle_translator.tool project import --input "episode.eng.srt" --source en --target hu --json
+python -S -m subtitle_translator.tool project status --project "<returned-project-id>" --json
+python -S -m subtitle_translator.tool entry list --project "<returned-project-id>" --limit 50 --json
+python -S -m subtitle_translator.tool project export --project "<returned-project-id>" --output "episode.source.srt" --json
+```
+
+The original bytes are archived in SQLite. The agent translates whole units and
+maps results to fixed timed cue IDs; display wrapping never shifts cue anchors.
+Use the [repo skill](skills/subtitle-assistant/SKILL.md) and
+[CLI/HTTP workflow](docs/agent-tool-workflow.md). The local API discovers its own
+credentials without an account or MCP registration. See the
+[contract](docs/tool-v1-contract.md), [M2 pilot](docs/m2-agent-pilot.md) and
+[development plan](docs/tool-first-development-plan.md). An M7a browser GUI preview
+is available; see [launch, status and persistence](docs/gui-preview.md). Persistent
+story context and subscription OAuth remain later milestones. Partial wording can
+be saved and downloaded as a confirmed, visibly marked `draft`, with a separate
+review list for video testing. The legacy provider
+workflow below is retained separately.
+
 🎬 **AI-powered subtitle translation tool** primarily designed for **hearing-impaired users** and others who **need** subtitles to access multimedia content.
 
 ## 🎯 Project Mission

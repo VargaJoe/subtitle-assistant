@@ -1,5 +1,33 @@
 # Subtitle Assistant
 
+## Agenttel használható felirateszköz (M2)
+
+Az új CLI és helyi HTTP API Python 3.10+ standard könyvtárával kezel tartós
+projekteket, csoportos agentes fordítást, védett kézi javítást és célnyelvi exportot.
+Az agent saját modelljével fordít; az alkalmazásban nem kell szolgáltatói belépés.
+Az eredeti byte-ok a helyi SQLite-munkatérben megmaradnak; a forrásexport megőrzi a
+szöveget, HTML-jelöléseket, sorszámokat és milliszekundumos időzítést.
+
+```powershell
+python -S -m subtitle_translator.tool capabilities --json
+python -S -m subtitle_translator.tool project import --input "episode.eng.srt" --source en --target hu --json
+python -S -m subtitle_translator.tool project status --project "<visszakapott-projektazonosító>" --json
+python -S -m subtitle_translator.tool project export --project "<visszakapott-projektazonosító>" --output "episode.source.srt" --json
+```
+
+Használat: [repo-skill](skills/subtitle-assistant/SKILL.md),
+[CLI/HTTP munkafolyamat](docs/agent-tool-workflow.md),
+[v1 szerződés](docs/tool-v1-contract.md), [M2 FBI-pilot](docs/m2-agent-pilot.md).
+Korai felület: [GUI-indítás, állapotok és megőrzés](docs/gui-preview.md).
+A félkész fordítás is menthető; videós próbához megerősített, jelölt munkaváltozat
+és külön ellenőrzési lista tölthető le. A CLI-ben ennek variánsa `draft`.
+Nincs külön fiók vagy MCP-regisztráció. A fordítás egysége több időzített
+bejegyzést is összefoghat; a célszöveg azonosítókhoz visszaillesztve készül, a
+tördelés nem módosíthatja az időhorgonyokat. A GUI M7a előzetes változata működik;
+a tartós történetkontextus és
+előfizetéses OAuth a [fejlesztési terv](docs/tool-first-development-plan.md)
+következő lépései. Az alábbi legacy provideres használat külön megmarad.
+
 🎬 **AI-alapú feliratfordító eszköz**, amely elsősorban azoknak készült, akiknek **szükségük van** feliratokra a multimédiás tartalmakhoz való hozzáféréshez (például a hallássérültek).
 
 ## 🎯 A projekt célja

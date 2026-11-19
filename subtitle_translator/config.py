@@ -283,6 +283,8 @@ class Config:
         # Validate translation backend is available in plugin system
         try:
             from .core import registry
+            from .core.plugin_loader import ensure_builtin_providers
+            ensure_builtin_providers()
             available_backends = registry.list_providers()
             if self.translation_backend not in available_backends:
                 raise ValueError(f"Translation backend '{self.translation_backend}' is not available. Available backends: {', '.join(available_backends)}")
